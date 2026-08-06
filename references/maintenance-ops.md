@@ -295,12 +295,36 @@ If a MOC already exists for the topic, update it rather than creating a new one:
 Apply formatting rules from VAULT.md `formatting_rules` section. Defaults:
 
 1. **Heading hierarchy**: Ensure no skipped levels (H1 → H3 without H2)
-2. **Whitespace**: Collapse 3+ consecutive blank lines to 2
-3. **Lists**: Normalize to configured style (dash/asterisk/plus)
-4. **Code blocks**: Add language tags to bare fenced blocks where detectable
-5. **Callouts**: Normalize to Obsidian callout syntax `> [!type]`
-6. **Trailing whitespace**: Strip from all lines
-7. **Final newline**: Ensure file ends with exactly one newline
+2. **Single H1**: Keep one H1 per note (the first, or the one that matches the
+   filename). Demote extra H1s to H2 and flag the note for review.
+3. **Bold normalization**: Keep a bold inline label ending in a colon inside a list
+   item (for example `- **Note:** ...`). Convert a bold-only line that sits directly
+   above a paragraph into a heading at the `heading_start` level. Leave inline
+   emphasis inside prose unchanged.
+4. **Whitespace**: Collapse blank-line runs to the VAULT.md `blank_lines` value
+   (default 1)
+5. **Lists**: Normalize to configured style (dash/asterisk/plus)
+6. **Code blocks**: Add language tags to bare fenced blocks where detectable
+7. **Callouts**: Normalize to Obsidian callout syntax `> [!type]`
+8. **Trailing whitespace**: Strip from all lines
+9. **Final newline**: Ensure file ends with exactly one newline
+
+### Conversion-artifact cleanup (gated)
+
+Notes converted from PDF, HTML, or DOCX often carry scrape cruft. This step rewrites
+body text, so treat it as a bulk change: show a preview and wait for approval. Remove
+or repair:
+
+- Navigation and chrome: cookie banners, nav breadcrumbs, "skip to content",
+  share/print widgets, video-player labels, footer boilerplate
+- Broken structure: split list numbers (a `1.` alone on the line above the item text),
+  drop-cap artifacts (a lone capital letter as a false heading), and heading text
+  merged into the previous paragraph
+- Garbled tables: word-art or decorative graphics the converter turned into tables —
+  delete them, or rebuild the table if it holds real data
+- Dead link fragments: `[back to text](#anchorNNNN)` return links and similar
+
+Do not delete content you cannot classify — flag it for review instead.
 
 ### What NOT to Touch
 

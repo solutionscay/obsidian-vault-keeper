@@ -50,8 +50,12 @@ This precedence covers configuration only; it does not relax the Safety Rules be
 3. **Preserve existing wikilinks.** When renaming, update all inbound links.
 4. **Preserve frontmatter.** Never strip valid YAML properties. Add missing ones;
    fix malformed ones.
-5. **Distinguish evidence from interpretation.** When expanding notes, mark
-   agent-generated content with a `> [!ai-generated]` callout block.
+5. **Distinguish evidence from interpretation.** Mark agent-written content with a
+   callout: a whole agent-drafted note gets `> [!ai-generated]`; agent-added facts
+   inside an existing note get `> [!updated]` with inline citations. The callout is
+   the canonical marking. Add provenance frontmatter keys (for example `ai_generated`,
+   `source`, `confidence`) only when the VAULT.md schema and `ai_content_marking`
+   setting call for them.
 6. **Source everything.** New claims must include a source URL or be labeled
    `[unsourced — verify]`.
 7. **End every session with a change summary.** List files changed, actions taken,
@@ -138,10 +142,21 @@ valid result, not a reason to force a merge.
 Apply consistent formatting per VAULT.md conventions (or defaults):
 
 - Heading hierarchy (H1 = title only, H2+ for sections)
+- At most one H1 per note: keep the first (or filename-matching) H1, demote the rest,
+  and flag the note for review
+- Bold normalization: keep a bold inline label that ends in a colon inside a list item;
+  convert a bold-only line that sits directly above a paragraph into a heading at the
+  VAULT.md `heading_start` level; leave inline emphasis in prose alone
 - Callout style for warnings, tips, references
 - Code block language tags
 - Consistent list style (bullets vs numbers)
-- Normalize whitespace (no triple+ blank lines)
+- Normalize whitespace: collapse blank-line runs to the VAULT.md `blank_lines` value
+  (default 1)
+
+Notes converted from PDF, HTML, or DOCX often carry scrape cruft (cookie banners, nav
+breadcrumbs, video-player labels, split list numbers, drop-cap artifacts, garbled
+tables). That cleanup rewrites body text, so run it as a gated step behind the preview
+and approval gate — see `references/maintenance-ops.md` "Conversion-artifact cleanup".
 
 ## Mode 2: Curator (Expansion)
 
@@ -159,7 +174,10 @@ Read the `expansion_domains` section of VAULT.md to understand what the vault
 1. **Map existing coverage**: Build a topic inventory from folder structure,
    tags, MOCs, and note titles
 2. **Identify thin areas**: Topics with fewer than 3 notes, or notes that are
-   mostly stubs (<100 words)
+   mostly stubs (<100 words). First subtract VAULT.md `excluded_paths`,
+   `read_only_paths`, and `accepted_orphan_zones`, and skip structural files (folder
+   `00-Index` hubs, numbered report sections, auto-generated notes) so they do not
+   inflate the thin-area count
 3. **Find missing connections**: Topics referenced in notes but lacking their
    own dedicated note
 4. **Detect staleness**: Notes whose modification-date field — the one declared in
