@@ -1,0 +1,300 @@
+# Expansion Operations Reference
+
+Detailed procedures for Curator mode — finding knowledge gaps, researching
+topics, and autonomously expanding the vault.
+
+## Table of Contents
+
+1. [Gap Analysis Procedure](#gap-analysis-procedure)
+2. [Research Methodology](#research-methodology)
+3. [Note Drafting Standards](#note-drafting-standards)
+4. [Source Quality Rules](#source-quality-rules)
+5. [Freshness Sweep](#freshness-sweep)
+6. [Autonomous Expansion Workflow](#autonomous-expansion-workflow)
+
+---
+
+## Gap Analysis Procedure
+
+### Step 1 — Build the coverage map
+
+Read VAULT.md `expansion_domains` to understand intended scope. Then:
+
+1. **Inventory by folder**: What topics live in each folder?
+2. **Inventory by tag**: What tag clusters exist and how deep do they go?
+3. **Inventory by MOC**: What do existing MOCs cover?
+4. **Inventory by link graph**: What are the most-linked-to topics? What topics
+   have outbound links to nonexistent notes (implicit gap)?
+
+### Step 2 — Score coverage depth
+
+For each domain in `expansion_domains`, score coverage:
+
+| Score | Meaning | Criteria |
+|-------|---------|----------|
+| 5 | Deep | 10+ notes, MOC exists, subtopics covered, recent updates |
+| 4 | Good | 5-10 notes, most subtopics touched |
+| 3 | Moderate | 3-5 notes, some subtopics missing |
+| 2 | Thin | 1-2 notes, mostly stubs |
+| 1 | Gap | 0 notes, but referenced or implied by adjacent content |
+| 0 | Blind spot | Not covered and not referenced — only visible from VAULT.md domains |
+
+### Step 3 — Identify specific gaps
+
+For each domain scoring ≤ 3:
+
+**Missing subtopics**: Compare VAULT.md subtopic list against existing notes.
+Any listed subtopic without a dedicated note (or meaningful coverage in a
+broader note) is a gap.
+
+**Dangling references**: Wikilinks like `[[topic-that-doesnt-exist]]` are
+explicit gaps — someone thought the note should exist.
+
+**Implied gaps**: Look for patterns like:
+- A note discusses "alternatives to X" but X itself has no note
+- A comparison note references a concept that's never defined
+- A project note depends on a technology that has no reference page
+- Meeting notes reference decisions that were never formally recorded
+
+**Stale coverage**: Notes on fast-moving topics (per VAULT.md `freshness`
+settings) that haven't been updated within the freshness window.
+
+### Step 4 — Prioritize
+
+Rank gaps by:
+
+1. **Centrality**: How many existing notes link to or reference this topic?
+2. **Domain priority**: Is this a `deep` or `surface` domain in VAULT.md?
+3. **Actionability**: Can this gap be filled with web research, or does it
+   require the user's personal knowledge?
+4. **Freshness urgency**: Is existing coverage actively misleading due to age?
+
+Present the gap report with priority rankings and recommended actions.
+
+---
+
+## Research Methodology
+
+When filling a gap with web research:
+
+### Source Selection
+
+1. **Search broadly first**: 3-5 different search queries per topic to get
+   diverse perspectives
+2. **Prefer primary sources**: official documentation, peer-reviewed papers,
+   company announcements, government data
+3. **Use authoritative secondary sources**: established publications, recognized
+   experts, reputable news organizations
+4. **Avoid**: forums (unless citing community consensus), SEO content farms,
+   undated content, sources with no clear authorship
+
+### Research Depth by Domain Setting
+
+| VAULT.md depth | Research approach |
+|----------------|-------------------|
+| deep | 8-15 searches, multiple sources per claim, include counterpoints |
+| moderate | 4-8 searches, 2-3 sources for key claims |
+| surface | 2-4 searches, capture the essentials |
+
+### Information Extraction
+
+For each source:
+
+1. Extract factual claims (not opinions unless the opinion itself is notable)
+2. Note the publication date
+3. Note the author/organization
+4. Capture the exact URL
+5. Assess the claim's confidence level:
+   - **high**: multiple authoritative sources agree
+   - **medium**: single authoritative source, or multiple lesser sources agree
+   - **low**: single source, or sources conflict
+   - **unverified**: plausible but not independently confirmed
+
+---
+
+## Note Drafting Standards
+
+### Structure
+
+Every agent-drafted note follows this structure:
+
+```markdown
+---
+title: "[Topic Title]"
+created: [ISO date]
+date_modified: [ISO date]
+tags: [per taxonomy]
+status: draft
+type: [note type]
+source: [primary source URL]
+confidence: [high/medium/low]
+ai_generated: true
+---
+
+> [!ai-generated]
+> This note was drafted by the Vault Keeper agent on [date].
+> Sources are cited inline. Review for accuracy before promoting to `active`.
+
+# [Topic Title]
+
+[Opening paragraph: what this topic is and why it matters to this vault]
+
+## Key Concepts
+
+[Core information organized by subtopic]
+
+## Current State (as of [date])
+
+[What's true right now — important for fast-moving topics]
+
+## Relevance to This Vault
+
+[How this topic connects to existing notes — with wikilinks]
+
+## Sources
+
+- [Source 1 title](URL) — accessed [date]
+- [Source 2 title](URL) — accessed [date]
+
+## Related Notes
+
+- [[related-note-1]]
+- [[related-note-2]]
+```
+
+### Writing Style
+
+- Write in the vault owner's apparent style (detect from existing notes)
+- If no clear style detected, default to concise, informational prose
+- Use the vault's heading conventions
+- Match the vault's callout style
+- Keep notes atomic — one concept per note (Zettelkasten principle)
+- For broad topics, create a MOC + multiple atomic notes rather than one
+  massive note
+
+### Link Integration
+
+After drafting:
+
+1. Search the vault for notes that discuss the new note's topic
+2. Propose adding `[[new-note]]` links in those existing notes at the
+   relevant mention points
+3. Add backlinks from the new note to all related existing notes
+4. Add the new note to relevant MOCs
+5. If no MOC covers this topic and 3+ related notes exist, propose creating one
+
+---
+
+## Source Quality Rules
+
+### Provenance Requirements
+
+Based on VAULT.md `provenance` setting:
+
+**Strict (default):**
+- Every factual claim must have a source URL
+- Confidence level required for each claim
+- No unsourced assertions except vault-internal observations
+- Source publication date required
+
+**Relaxed:**
+- Key claims need sources
+- General knowledge statements can be unsourced
+- Confidence level optional
+
+### Citation Format
+
+Inline citations in the note body:
+
+```markdown
+LLMs have shown emergent abilities at scale ([Wei et al., 2022](https://arxiv.org/...)),
+though this interpretation has been challenged ([Schaeffer et al., 2023](https://arxiv.org/...)).
+```
+
+Full source list in the `## Sources` section at the bottom.
+
+### Handling Conflicting Sources
+
+When sources disagree:
+
+1. Present both perspectives
+2. Note which source is more recent, more authoritative, or more widely cited
+3. Set confidence to `low` for the contested claim
+4. Do NOT pick a winner — let the vault owner decide
+
+---
+
+## Freshness Sweep
+
+### Procedure
+
+1. Read VAULT.md `expansion_domains` for freshness thresholds per domain
+2. Identify notes in each domain with `date_modified` older than the threshold
+3. For each stale note:
+   a. Search the web for current information on the note's topic
+   b. Compare findings against the note's existing content
+   c. Categorize the update need:
+      - **Outdated**: facts have changed, needs correction
+      - **Incomplete**: new developments not covered
+      - **Still accurate**: bump the `date_modified`, no content change needed
+4. For notes needing updates:
+   a. Draft the specific additions/corrections as a diff
+   b. Add new sources alongside existing ones (never remove old sources —
+      they document the historical record)
+   c. Update `date_modified`
+   d. If the update is substantial, add a `> [!updated]` callout noting what changed
+
+### What Counts as Stale
+
+| Domain freshness | Stale threshold |
+|-----------------|-----------------|
+| 1_month | Last modified >30 days ago |
+| 3_months | Last modified >90 days ago |
+| 6_months | Last modified >180 days ago |
+| 12_months | Last modified >365 days ago |
+| evergreen | Never stale (but check if referenced facts have changed) |
+
+---
+
+## Autonomous Expansion Workflow
+
+When the user says "expand my vault" or similar, run this full workflow:
+
+### Step 1 — Gap Analysis
+Run the full gap analysis procedure above. Present the gap report.
+
+### Step 2 — Approval Gate
+Present the top 5-10 gaps with recommended actions. The user selects which
+gaps to fill. Autonomous does NOT mean unsupervised — the user approves
+what topics to research.
+
+### Step 3 — Research Batch
+For each approved gap:
+1. Search the web (depth per domain setting)
+2. Draft the note per standards above
+3. Collect all drafted notes
+
+### Step 4 — Review Batch
+Present all drafted notes for review:
+- Show each note with its proposed placement and links
+- User can: approve, edit, reject, or defer each note
+
+### Step 5 — Integration
+For approved notes:
+1. Write the note to the vault
+2. Add links from existing notes
+3. Update MOCs
+4. Update tag index if applicable
+
+### Step 6 — Session Summary
+Standard session close with full change log.
+
+### Guardrails for Autonomous Operation
+
+- Never create more than 10 notes in a single session without re-confirming
+- Never modify existing notes without showing the diff
+- If a gap requires personal/proprietary knowledge (detected by: the topic
+  is about the user's own projects, decisions, or experiences), flag it as
+  "requires human input" rather than attempting to fill it
+- If web research returns no quality sources, report the gap as "unfillable
+  via research" rather than drafting a low-confidence note
