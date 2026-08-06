@@ -18,7 +18,10 @@ topics, and autonomously expanding the vault.
 
 ### Step 1 — Build the coverage map
 
-Read VAULT.md `expansion_domains` to understand intended scope. Then:
+Read VAULT.md `expansion_domains` to understand intended scope. Exclude
+`excluded_paths`, `read_only_paths`, and `accepted_orphan_zones` from every count,
+and skip structural files (folder `00-Index` hubs, numbered report sections, and
+auto-generated notes) so they do not read as thin coverage. Then:
 
 1. **Inventory by folder**: What topics live in each folder?
 2. **Inventory by tag**: What tag clusters exist and how deep do they go?
@@ -41,11 +44,16 @@ For each domain in `expansion_domains`, score coverage:
 
 ### Step 3 — Identify specific gaps
 
-For each domain scoring ≤ 3:
+For every domain — not only low-scoring ones. A domain can score 4-5 in aggregate
+yet still miss specific subtopics, so run the subtopic comparison in all cases.
 
 **Missing subtopics**: Compare VAULT.md subtopic list against existing notes.
 Any listed subtopic without a dedicated note (or meaningful coverage in a
 broader note) is a gap.
+
+**Over-coverage**: Flag any domain whose note volume materially exceeds its declared
+`depth` (for example a `surface` domain with 30+ notes) as a pruning or
+re-classification candidate.
 
 **Dangling references**: Wikilinks like `[[topic-that-doesnt-exist]]` are
 explicit gaps — someone thought the note should exist.
@@ -56,6 +64,11 @@ explicit gaps — someone thought the note should exist.
 - A project note depends on a technology that has no reference page
 - Meeting notes reference decisions that were never formally recorded
 
+To run this without reading every note, grep the vault for cue phrases — "alternatives
+to", "compared to", "as opposed to", "depends on", "successor to", "instead of" —
+extract the referenced term from each hit, then check whether a dedicated note exists
+for that term. Report the terms that have no note.
+
 **Stale coverage**: Notes on fast-moving topics (per VAULT.md `freshness`
 settings) that haven't been updated within the freshness window.
 
@@ -63,7 +76,10 @@ settings) that haven't been updated within the freshness window.
 
 Rank gaps by:
 
-1. **Centrality**: How many existing notes link to or reference this topic?
+1. **Centrality**: How many existing notes link to or reference this topic? Compute it
+   by extracting every `[[target]]`, resolving each to a note, and counting inbound
+   links per note; the topic's centrality is the inbound count of its nearest note plus
+   its raw mention frequency across the vault
 2. **Domain priority**: Is this a `deep` or `surface` domain in VAULT.md?
 3. **Actionability**: Can this gap be filled with web research, or does it
    require the user's personal knowledge?
@@ -176,6 +192,18 @@ ai_generated: true
 - Keep notes atomic — one concept per note (Zettelkasten principle)
 - For broad topics, create a MOC + multiple atomic notes rather than one
   massive note
+
+### Draft state and AI marking
+
+A fresh agent draft is unverified. If the VAULT.md status enum has a draft or
+quarantine value (for example `draft`), use it. If it does not, do not file the draft
+as a trusted value such as `reference` or `authoritative`. Instead, propose adding a
+`draft` value to the VAULT.md schema, and hold the note until the operator approves it.
+
+The `> [!ai-generated]` callout is the canonical AI marking for a whole drafted note.
+For a factual addition to an existing note, use `> [!updated]` with inline citations.
+Add provenance frontmatter keys only when the VAULT.md schema includes them and the
+`ai_content_marking` setting is `frontmatter`.
 
 ### Link Integration
 
