@@ -183,6 +183,7 @@ review_subfolder: 40-archive/review-needed/
 auto_archive_after: never    # never | 6_months | 12_months
 preserve_links: true         # keep wikilinks valid after archiving
 forwarding_note: true        # leave a stub in the original location
+external_archive: ~/backups/vault-snapshots/  # optional: recovery snapshot path; used before writes when git_aware is false
 ```
 
 #### `## Formatting Rules`

@@ -34,11 +34,19 @@ If `VAULT.md` does not exist, offer to generate one by scanning the vault's curr
 structure. Read `references/vault-config-spec.md` for the full config schema and
 a starter template.
 
+**VAULT.md is authoritative for configuration.** Where a value in VAULT.md — schema,
+formatting rules, naming, tag taxonomy, thresholds (for example `approval_required_above`),
+`git_aware`, template locations, archive paths — differs from a default, table, or
+template in this skill or its reference files, the VAULT.md value wins. The skill's own
+defaults and templates apply only to keys and behaviors that VAULT.md does not define.
+This precedence covers configuration only; it does not relax the Safety Rules below.
+
 ## Safety Rules (non-negotiable)
 
 1. **Never delete notes.** Move candidates to the archive folder defined in VAULT.md.
-2. **Preview before bulk changes.** For any operation touching >3 files, show the
-   planned changes as a table (file, action, reason) and wait for approval.
+2. **Preview before bulk changes.** For any operation touching more files than
+   VAULT.md `approval_required_above` (default 3), show the planned changes as a
+   table (file, action, reason) and wait for approval.
 3. **Preserve existing wikilinks.** When renaming, update all inbound links.
 4. **Preserve frontmatter.** Never strip valid YAML properties. Add missing ones;
    fix malformed ones.
@@ -47,9 +55,14 @@ a starter template.
 6. **Source everything.** New claims must include a source URL or be labeled
    `[unsourced — verify]`.
 7. **End every session with a change summary.** List files changed, actions taken,
-   and the git diff command to review.
+   and a review command: give `git diff` when VAULT.md `git_aware` is true (the
+   default); on a no-git vault, give the snapshot path and a diff against it.
 8. **Respect exclusion zones.** Never read or modify paths listed under
    `exclusions` in VAULT.md.
+9. **Snapshot before writing on a no-git vault.** If VAULT.md sets `git_aware: false`,
+   create a recovery snapshot before the first write, using the recovery path in
+   VAULT.md Archive Policy (`external_archive`). If the vault declares neither git nor
+   a snapshot path, stop and ask the operator to choose a recovery mechanism first.
 
 ## Mode 1: Steward (Maintenance)
 
@@ -71,6 +84,14 @@ Produce a diagnostic report covering:
 - **Empty notes**: files with <20 characters of body content
 - **Misplaced notes**: files in folders that don't match their type/status
 
+Run `scripts/vault-health-scan.sh <vault>` first for baseline metrics (total notes,
+per-folder counts, empty and stub notes, notes missing a frontmatter fence, unique
+link-target and tag counts, VAULT.md and git presence). These are baseline signals,
+not the full diagnostics: the script does not detect orphans, broken links, duplicates,
+naming violations, tag anomalies, or misplaced notes. Compute those categories per
+`references/maintenance-ops.md`, which builds the vault index, an inbound-link map,
+and target-existence checks.
+
 Present the report as a summary table with counts per category, then offer to
 drill into any category.
 
@@ -80,7 +101,7 @@ For each issue class, apply the fix defined in VAULT.md or use these defaults:
 
 | Issue | Default action |
 |-------|---------------|
-| Missing frontmatter | Add required fields with sensible defaults, mark `status: draft` |
+| Missing frontmatter | Add the fields named in VAULT.md `required`, values derived sensibly; set enum fields to a valid VAULT.md value. Do not add keys the vault schema omits. |
 | Naming violations | Propose rename following convention, update all inbound links |
 | Tag typos | Replace with closest valid tag from taxonomy |
 | Malformed YAML | Fix syntax, preserve all existing key-value pairs |
@@ -97,6 +118,13 @@ Identify and merge duplicates:
 3. Keep the note with more inbound links as the primary
 4. Redirect the other(s) to an alias in the primary's frontmatter
 5. Move the duplicate(s) to archive with a forwarding note
+
+Do not treat a folder-note and its `00-Index` (or other hub) as duplicates, and never
+archive a hub note. Hubs are reached by folder navigation and show zero inbound links,
+so do not pick the primary by raw inbound count for hub notes. Before any merge, check
+the candidate against VAULT.md structural invariants (for example, every folder keeps
+its hub). A clean, already-deduped vault may have zero merge candidates — that is a
+valid result, not a reason to force a merge.
 
 ### Phase 4 — Organize
 
@@ -134,8 +162,10 @@ Read the `expansion_domains` section of VAULT.md to understand what the vault
    mostly stubs (<100 words)
 3. **Find missing connections**: Topics referenced in notes but lacking their
    own dedicated note
-4. **Detect staleness**: Notes with `date_modified` older than the threshold
-   in VAULT.md (default: 6 months) on fast-moving topics
+4. **Detect staleness**: Notes whose modification-date field — the one declared in
+   the VAULT.md frontmatter schema (for example `updated`, `date_modified`, `modified`;
+   fall back to filesystem mtime if none) — is older than the VAULT.md threshold
+   (default: 6 months) on fast-moving topics
 5. **Surface implicit gaps**: Topics that adjacent notes imply but no note covers
 
 Present findings as a prioritized gap report: topic, gap type, priority
@@ -164,7 +194,7 @@ For notes flagged as stale:
 
 1. Search the web for updated information on the note's topic
 2. Propose specific additions or corrections as a diff
-3. Update the `date_modified` property
+3. Update the vault's modification-date field (per VAULT.md schema) in place; never introduce a field the schema does not define
 4. Add new sources alongside existing ones (never remove old sources)
 
 ## Generating a VAULT.md
@@ -201,7 +231,8 @@ Every Vault Keeper session ends with:
 - After: [counts]
 
 ### Review Command
-`git diff --stat` or `git diff` for full changes
+When VAULT.md `git_aware` is true (the default): `git diff --stat` or `git diff`.
+On a no-git vault: extract the snapshot, then `diff -r <extracted-snapshot> <vault>`; the change table above is the authoritative record.
 ```
 
 ## File Structure

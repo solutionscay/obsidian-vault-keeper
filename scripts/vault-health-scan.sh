@@ -86,7 +86,7 @@ echo "  Stub notes (<50 words): $STUB"
 
 # Collect all wikilinks and check for broken ones
 echo ""
-echo "=== Link Check ==="
+echo "=== Link Count (baseline; no broken-link detection) ==="
 ALL_LINKS=$(grep -roh '\[\[[^]]*\]\]' "$VAULT_DIR" \
     --include="*.md" \
     --exclude-dir=".obsidian" \
@@ -98,7 +98,7 @@ echo "  Unique wikilink targets: $ALL_LINKS"
 
 # Count all unique tags
 echo ""
-echo "=== Tag Check ==="
+echo "=== Tag Count (baseline; raw #hashtag strings, may include anchors) ==="
 ALL_TAGS=$(grep -roh '#[a-zA-Z][a-zA-Z0-9_/\-]*' "$VAULT_DIR" \
     --include="*.md" \
     --exclude-dir=".obsidian" \
@@ -121,7 +121,7 @@ if [ -d "$VAULT_DIR/.git" ]; then
     LAST_COMMIT=$(cd "$VAULT_DIR" && git log -1 --format="%ar" 2>/dev/null || echo "unknown")
     echo "  Git: initialized (last commit: $LAST_COMMIT)"
 else
-    echo "  Git: not initialized (recommended for recovery)"
+    echo "  Git: not initialized (a no-git vault may define snapshot-based recovery in VAULT.md external_archive)"
 fi
 
 echo ""

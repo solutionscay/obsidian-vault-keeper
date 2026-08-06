@@ -116,7 +116,12 @@ For each source:
 
 ### Structure
 
-Every agent-drafted note follows this structure:
+Every agent-drafted note follows this structure. Build the frontmatter from VAULT.md's
+required and optional keys, using the vault's exact key names, value types, and status
+enum. Add provenance keys (for example `source`, `confidence`, `ai_generated`) only as
+the VAULT.md `provenance` and `ai_content_marking` settings direct. The YAML block below
+is an illustrative example for a vault with no frontmatter schema — do not copy its keys
+verbatim. Keep the body sections that follow as the general standard.
 
 ```markdown
 ---
@@ -229,26 +234,32 @@ When sources disagree:
 ### Procedure
 
 1. Read VAULT.md `expansion_domains` for freshness thresholds per domain
-2. Identify notes in each domain with `date_modified` older than the threshold
+2. Identify notes in each domain whose VAULT.md-declared modification-date field
+   (fall back to filesystem mtime if the schema names none) is older than the
+   threshold. If most notes in a domain share one recent value for that field
+   (a sign of bulk import or auto-generation), treat the field as unreliable:
+   fall back to the underlying source date, or flag the domain
+   "freshness-unverifiable — needs manual review" rather than reporting zero stale
+   notes.
 3. For each stale note:
    a. Search the web for current information on the note's topic
    b. Compare findings against the note's existing content
    c. Categorize the update need:
       - **Outdated**: facts have changed, needs correction
       - **Incomplete**: new developments not covered
-      - **Still accurate**: bump the `date_modified`, no content change needed
+      - **Still accurate**: bump the modification-date field, no content change needed
 4. For notes needing updates:
    a. Draft the specific additions/corrections as a diff
    b. Add new sources alongside existing ones (never remove old sources —
       they document the historical record)
-   c. Update `date_modified`
+   c. Update the modification-date field (per VAULT.md schema)
    d. If the update is substantial, add a `> [!updated]` callout noting what changed
 
 ### What Counts as Stale
 
 | Domain freshness | Stale threshold |
 |-----------------|-----------------|
-| 1_month | Last modified >30 days ago |
+| 1_month | Modification-date field (per VAULT.md) >30 days ago |
 | 3_months | Last modified >90 days ago |
 | 6_months | Last modified >180 days ago |
 | 12_months | Last modified >365 days ago |

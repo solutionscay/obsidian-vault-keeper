@@ -154,6 +154,7 @@ review_subfolder: 40-archive/review-needed/
 auto_archive_after: never
 preserve_links: true
 forwarding_note: true
+external_archive: ~/backups/vault-snapshots/  # optional: recovery snapshot path; used before writes when git_aware is false
 ```
 
 ## Formatting Rules
