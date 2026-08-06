@@ -1,0 +1,15 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editor cruft
+*.swp
+*~
+.idea/
+.vscode/
+
+# Obsidian / Syncthing (in case a test vault is placed here)
+.obsidian/
+.trash/
+.stfolder/
+.stversions/

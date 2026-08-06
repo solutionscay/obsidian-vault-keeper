@@ -29,7 +29,7 @@ For each `.md` file, extract:
 - All outbound wikilinks `[[target]]` and `[[target|alias]]`
 - All tags (both frontmatter `tags:` and inline `#tag`)
 - Word count of body content (excluding frontmatter)
-- Last modified date (from filesystem or frontmatter `date_modified`)
+- Last modified date (from the VAULT.md-declared modification-date field, else filesystem mtime)
 
 Store this as a working index for all subsequent phases.
 
@@ -131,11 +131,10 @@ Renaming is the highest-risk maintenance operation because it can break links.
 
 1. Read the required schema from VAULT.md
 2. For each note with violations:
-   - Add missing required fields with defaults:
-     - `title`: derive from filename (de-kebab, title case)
-     - `created`: use file creation date or current date
-     - `tags`: set to `[]`
-     - `status`: set to `draft`
+   - Add each field named in VAULT.md `required`, deriving values sensibly: a
+     string field from the filename or first H1, a date field from file mtime, an
+     enum field set to a valid VAULT.md value. Do not add `title`, `created`,
+     `tags`, or any key the vault schema omits.
    - Fix type mismatches (string where list expected, etc.)
    - Preserve all existing valid fields — never strip unknown properties
    - Fix YAML syntax errors (unclosed quotes, bad indentation)
@@ -177,6 +176,12 @@ Obsidian supports nested tags like `#tech/ai/agents`. When cleaning:
 
 ### Merge Procedure
 
+Before you merge: skip folder-note vs `00-Index` (or other hub) pairs — they are not
+duplicates. Never select a hub note to be archived, and do not rely on raw inbound-link
+count to pick the primary for hub notes (hubs show zero inbound links). Confirm more than
+200 words of body overlap before you propose any merge, and check the merge against
+VAULT.md structural invariants (for example, every folder keeps its hub).
+
 1. Present both notes side by side with a diff view
 2. Identify the "primary" note (more inbound links, richer content, better name)
 3. Draft a merged version that:
@@ -187,16 +192,19 @@ Obsidian supports nested tags like `#tech/ai/agents`. When cleaning:
 4. Show the merged draft for approval
 5. On approval:
    - Write the merged content to the primary note
-   - Replace the duplicate with a forwarding stub:
+   - Replace the duplicate with a forwarding stub. Keep the vault's required keys
+     (for example `type`, `updated`) and use an allowed status value:
      ```markdown
      ---
-     aliases: []
-     redirect: "[[primary-note]]"
-     status: archived
+     # keep the vault's required keys (for example type, updated)
+     status: <the vault's archive/retired status, if the enum defines one>
+     aliases: ["<the duplicate's plain title>"]
      ---
      > [!info] This note has been merged into [[primary-note]].
      ```
-   - Move the stub to the archive folder
+   - Give the stub a collision-safe name in the archive folder (prefix with the
+     source folder or the date, for example `_archive/CLI-Artist-Prompts--00-Index.md`),
+     and check for an existing file before you move it
    - Update all inbound links that pointed to the duplicate
 
 ---
@@ -229,10 +237,18 @@ Maps of Content are index notes that organize a topic area.
 
 ### Procedure
 
-1. Identify the topic scope (from tag, folder, or user specification)
+1. Identify the topic scope (from tag, folder, or user specification). Check VAULT.md
+   for a hub-file convention first (for example a `00-Index.md` per folder): if one
+   exists, the MOC IS that hub file — update it in place, and never create a parallel
+   MOC note beside it. Otherwise use a MOC or index folder if VAULT.md defines one,
+   else place the MOC next to the topic folder. A topic area is normally one top-level
+   folder; where an `expansion_domain` spans several folders, make one MOC per folder
+   and cross-link them.
 2. Gather all notes matching the scope
 3. Group by subtopic (using tags, folder, or content clustering)
-4. Draft the MOC using the vault's MOC template (or default):
+4. Draft the MOC. Build the frontmatter from the VAULT.md schema; the block below is
+   an illustrative example for a schema-less vault, so do not copy its keys verbatim
+   when the vault defines a schema:
 
 ```markdown
 ---
