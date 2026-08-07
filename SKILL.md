@@ -155,6 +155,14 @@ a scheduled prompt — means one complete session of BOTH modes: the Steward swe
 (Phases 1–5), then the Curator loop (Phases 1–3). The trigger phrases under each mode
 select that mode alone only when the operator names that specific job.
 
+The phase order describes a full sweep, not a fixed opening ritual. In a scheduled or
+continuation session (see Session Continuity), do not start at Phase 1: read the
+next-run queue, reuse the last health scan as the baseline, and go straight to the
+highest-value target — often Curator work. Re-run the full health scan only when no
+recent baseline exists (none from roughly the last day), the queue is empty, or the
+vault changed outside the skill. The scan is a diagnostic to refresh periodically,
+not a toll to pay before every improvement.
+
 A scan is a phase, not a session. Do not stop after the health scan: its report is input
 to the phases that follow, not the deliverable. Do not report a session complete unless
 at least one of these happened:
