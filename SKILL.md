@@ -119,17 +119,31 @@ for an interactive session stall an unattended run.
 
 ## Reporting Style
 
-Always report to the operator in Simplified Technical English (ASD-STE100): short
-sentences, active voice, one idea per sentence, plain approved words.
+A session produces two artifacts for two different readers. Do not mix them.
 
-Lead with the outcome a human cares about — what changed in the vault, what is now true,
-what needs a decision. Do not narrate process. No per-subagent launch-and-finish
-play-by-play. No tool-by-tool commentary. No restating these instructions back. Cut
-status theater and filler acknowledgements.
+**The chat report is a story about knowledge, not a log about files.** Tell the
+operator what the vault learned: the gap that existed, what the research found, what
+the vault can now answer that it could not before, and why that matters to the
+operator's work (anchor "why it matters" in the VAULT.md Purpose and expansion
+domains). Write it as three to six sentences of plain, calm prose — short sentences,
+active voice, no hype, no invented color. Name new or changed notes inline where they
+appear in the story. Close with one line: the most valuable thing the next session
+should go learn.
 
-A short change table plus a "what this means" line beats a long transcript. When work
-runs in the background, stay quiet until there is an outcome to report; do not post
-progress ticks. Give the result, then stop.
+Mechanics do not belong in the chat report. Counts, link repairs, snapshot paths,
+frontmatter fixes, verification results, and health deltas go in the session summary
+file (see Session Close); in chat, give that file's path in a single line at the end.
+Mention a mechanical detail in chat only when the operator must act on it.
+
+The coffee test: would a colleague say this to the operator's face? "I added
+frontmatter to 14 files and verified 915 links" fails. "Your notes kept circling a
+topic without ever explaining it — there is now a sourced note that answers it, and
+here is when you will need it" passes. A report that reads like a build log is a
+failed report even when the work was good.
+
+Do not narrate process. No per-subagent play-by-play, no tool-by-tool commentary, no
+restating these instructions, no progress ticks while work runs in the background.
+Give the story, the one decision you need (if any), the summary path, and stop.
 
 ## A Full Run
 
@@ -351,6 +365,10 @@ Before writing the summary, verify the session's own work: every link you added
 resolves, every new note's frontmatter parses and matches the VAULT.md schema, every
 new factual claim carries a source, every new note is linked from its hub, and no
 excluded path changed. Fix what fails verification before reporting it.
+
+This template is the session summary FILE — the full mechanical record, written to
+the log folder. It is not the chat report; the chat gets the narrative described in
+Reporting Style, with a one-line pointer to this file.
 
 Every Vault Keeper session ends with:
 

@@ -246,8 +246,8 @@ Based on VAULT.md `provenance` setting:
 Inline citations in the note body:
 
 ```markdown
-LLMs have shown emergent abilities at scale ([Wei et al., 2022](https://arxiv.org/...)),
-though this interpretation has been challenged ([Schaeffer et al., 2023](https://arxiv.org/...)).
+The claim, stated in prose ([Author, YEAR](https://example.org/source)), with the
+counterpoint noted where sources disagree ([Other Author, YEAR](https://example.org/counterpoint)).
 ```
 
 Full source list in the `## Sources` section at the bottom.

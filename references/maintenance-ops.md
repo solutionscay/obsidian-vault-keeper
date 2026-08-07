@@ -210,7 +210,7 @@ VAULT.md structural invariants (for example, every folder keeps its hub).
      > [!info] This note has been merged into [[primary-note]].
      ```
    - Give the stub a collision-safe name in the archive folder (prefix with the
-     source folder or the date, for example `_archive/CLI-Artist-Prompts--00-Index.md`),
+     source folder or the date, for example `<archive>/Source-Folder--00-Index.md`),
      and check for an existing file before you move it
    - Update all inbound links that pointed to the duplicate
 

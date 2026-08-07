@@ -11,9 +11,8 @@ frontmatter schemas, and organizational philosophies vary widely. Rather than
 hardcoding assumptions, the Vault Keeper reads VAULT.md to learn the vault's
 rules before touching anything.
 
-This pattern was popularized by the FrankX Starlight Second Brain architecture
-and is now a common convention across agent skill ecosystems. The idea: the vault
-itself carries its own operating manual.
+The idea: the vault itself carries its own operating manual, so any agent can
+adapt to any vault without hardcoded assumptions.
 
 ## Schema
 
