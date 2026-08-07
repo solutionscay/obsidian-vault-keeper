@@ -201,6 +201,7 @@ Directives for how the agent should interact with this vault:
 
 ```yaml
 approval_required_above: 3   # file count threshold for bulk preview
+max_new_notes_per_session: 10  # Curator cap; excess gaps queue as next-run targets
 git_aware: true              # end sessions with git diff commands
 provenance: strict            # strict | relaxed — how much sourcing is required
 ai_content_marking: callout   # callout | frontmatter | none
@@ -225,5 +226,8 @@ When a vault has no VAULT.md, the Vault Keeper can generate one:
 3. Check for existing templates folder
 4. Check for `.obsidian/` to confirm it's an Obsidian vault
 5. Draft VAULT.md with detected patterns as defaults
-6. Present to user with `[detected]` annotations so they can correct
-7. Write only after explicit approval
+6. In an interactive session: present with `[detected]` annotations so the user
+   can correct, and write only after explicit approval
+7. In an unattended run: write the draft now — keep detected values, choose
+   conservative defaults for the rest, add the `> [!ai-generated]` callout, and
+   flag it for operator review at the top of the session summary

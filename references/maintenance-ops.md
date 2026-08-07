@@ -3,6 +3,13 @@
 Detailed procedures for each Steward operation. The SKILL.md defines the what;
 this file defines the how.
 
+Approval language in this file ("show a preview", "wait for approval", "on approval",
+"present options") marks Gated interaction points. Resolve every one per the SKILL.md
+Autonomy section: under standing autonomy or in an unattended run, do the
+additive-scope action and record it; defer restricted-scope actions (renames touching
+inbound links, merges, bulk reformatting, conversion cleanup) to Deferred Items
+instead of waiting.
+
 ## Table of Contents
 
 1. [Health Scan Procedure](#health-scan-procedure)
@@ -216,8 +223,9 @@ VAULT.md structural invariants (for example, every folder keeps its hub).
 For each broken link:
 1. Search for notes with similar names (fuzzy match)
 2. Search for notes containing the broken link text in their aliases
-3. If a clear match exists (similarity > 0.85): propose the fix
-4. If ambiguous: present options to the user
+3. If a clear match exists (similarity > 0.85): apply the fix (Gated: propose it)
+4. If ambiguous: present options in a Gated session; in an unattended run, leave
+   the link unchanged and list the candidates under Deferred Items
 5. If no match: the link may reference a note that should exist — flag for
    Curator mode gap analysis
 

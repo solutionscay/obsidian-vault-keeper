@@ -172,6 +172,7 @@ callout_style: obsidian
 
 ```yaml
 approval_required_above: 3
+max_new_notes_per_session: 10
 git_aware: true
 provenance: strict
 ai_content_marking: callout

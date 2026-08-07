@@ -3,6 +3,10 @@
 Detailed procedures for Curator mode — finding knowledge gaps, researching
 topics, and autonomously expanding the vault.
 
+Approval language in this file marks Gated interaction points. Resolve every one per
+the SKILL.md Autonomy section: under standing autonomy or in an unattended run, do the
+additive-scope action and record it; defer restricted-scope actions instead of waiting.
+
 ## Table of Contents
 
 1. [Gap Analysis Procedure](#gap-analysis-procedure)
@@ -197,8 +201,10 @@ ai_generated: true
 
 A fresh agent draft is unverified. If the VAULT.md status enum has a draft or
 quarantine value (for example `draft`), use it. If it does not, do not file the draft
-as a trusted value such as `reference` or `authoritative`. Instead, propose adding a
-`draft` value to the VAULT.md schema, and hold the note until the operator approves it.
+as a trusted value such as `reference` or `authoritative`. Instead, place the note in
+the review folder (VAULT.md `review_subfolder`) with a valid status value, and record
+a proposal to add a `draft` value to the schema under Deferred Items. Do not stall the
+session waiting for a schema decision.
 
 The `> [!ai-generated]` callout is the canonical AI marking for a whole drafted note.
 For a factual addition to an existing note, use `> [!updated]` with inline citations.
@@ -302,24 +308,29 @@ When the user says "expand my vault" or similar, run this full workflow:
 ### Step 1 — Gap Analysis
 Run the full gap analysis procedure above. Present the gap report.
 
-### Step 2 — Approval Gate
-Present the top 5-10 gaps with recommended actions. The user selects which
-gaps to fill. Autonomous does NOT mean unsupervised — the user approves
-what topics to research.
+### Step 2 — Gap Selection
+In a Gated session, present the top 5-10 gaps with recommended actions and let the
+operator select which to fill. Under standing autonomy — including every unattended
+run — select the gaps yourself: highest priority first, bounded by the session note
+cap. Record the selection and the reasoning in the session summary. Do not wait for
+a selection that cannot come.
 
 ### Step 3 — Research Batch
-For each approved gap:
+For each selected gap:
 1. Search the web (depth per domain setting)
 2. Draft the note per standards above
 3. Collect all drafted notes
 
 ### Step 4 — Review Batch
-Present all drafted notes for review:
-- Show each note with its proposed placement and links
-- User can: approve, edit, reject, or defer each note
+In a Gated session, present all drafted notes for review — placement, links, and
+content — and let the operator approve, edit, reject, or defer each one. Under
+standing autonomy, run the review yourself against the drafting standards above
+(frontmatter parses and matches schema, links resolve, every claim sourced, correct
+folder); integrate what passes, and move anything uncertain to the review folder
+(VAULT.md `review_subfolder`) instead of holding the session open.
 
 ### Step 5 — Integration
-For approved notes:
+For each note that passed review:
 1. Write the note to the vault
 2. Add links from existing notes
 3. Update MOCs
@@ -330,8 +341,12 @@ Standard session close with full change log.
 
 ### Guardrails for Autonomous Operation
 
-- Never create more than 10 notes in a single session without re-confirming
-- Never modify existing notes without showing the diff
+- Never create more than VAULT.md `max_new_notes_per_session` (default 10) notes in
+  one session. In a Gated session, re-confirm to exceed the cap; in an unattended
+  run, stop at the cap and queue the remainder as next-run targets
+- Never modify an existing note without a reviewable diff: show it in a Gated
+  session; in an unattended run, rely on git (or the pre-write snapshot) and list
+  the file in the change summary
 - If a gap requires personal/proprietary knowledge (detected by: the topic
   is about the user's own projects, decisions, or experiences), flag it as
   "requires human input" rather than attempting to fill it

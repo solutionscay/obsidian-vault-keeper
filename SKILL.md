@@ -7,6 +7,8 @@ description: >-
   knowledge gaps, research topics, and expand their knowledge base. Also trigger
   when the user mentions vault maintenance, note hygiene, orphan notes, broken links,
   tag cleanup, frontmatter standardization, MOC generation, or knowledge base expansion.
+  Also use for scheduled or unattended curation runs — a cron prompt, a recurring
+  maintenance job, or a bare "run the skill" with nobody waiting to reply.
   Works across any vault by reading a VAULT.md config at the vault root.
 ---
 
@@ -30,9 +32,12 @@ Before ANY operation, read `VAULT.md` at the vault root. This file defines:
 - Link conventions (wikilinks vs markdown links, alias rules)
 - Archive policy (where retired notes go)
 
-If `VAULT.md` does not exist, offer to generate one by scanning the vault's current
-structure. Read `references/vault-config-spec.md` for the full config schema and
-a starter template.
+If `VAULT.md` does not exist, generate one by scanning the vault's current structure:
+in an interactive session, present the draft for approval before writing; in an
+unattended run, write it directly with conservative detected defaults, mark it with the
+`> [!ai-generated]` callout, flag it for operator review, and continue the session.
+Read `references/vault-config-spec.md` for the full config schema and a starter
+template.
 
 **VAULT.md is authoritative for configuration.** Where a value in VAULT.md — schema,
 formatting rules, naming, tag taxonomy, thresholds (for example `approval_required_above`),
@@ -66,7 +71,10 @@ This precedence covers configuration only; it does not relax the Safety Rules be
 9. **Snapshot before writing on a no-git vault.** If VAULT.md sets `git_aware: false`,
    create a recovery snapshot before the first write, using the recovery path in
    VAULT.md Archive Policy (`external_archive`). If the vault declares neither git nor
-   a snapshot path, stop and ask the operator to choose a recovery mechanism first.
+   a snapshot path: in an interactive session, ask the operator to choose a recovery
+   mechanism; in an unattended run, do not stop — write the snapshot to
+   `~/.vault-keeper/snapshots/<vault-name>-<date>/`, report the path in the session
+   summary, and continue. Snapshot creation is read-only on the vault and always safe.
 
 ## Autonomy
 
@@ -93,6 +101,22 @@ callout, respect exclusion zones. Under autonomy, replace the per-item preview g
 one batched change summary at session close. Fan work out to subagents when a batch is
 large; keep cross-file edits (hubs, inbound links) central to avoid write races.
 
+An unattended run has no operator to answer a gate. When the skill is invoked headlessly —
+a scheduled job, a cron prompt, a channel command with nobody waiting to reply — treat the
+invocation itself as standing autonomy over the additive scope above. Do the safe work.
+Record anything that would need a Gated approval (deletes, renames, merges, bulk
+reformatting) under Deferred Items in the session summary instead of waiting for a reply
+that cannot come. Waiting is not the safe choice in an unattended run; it converts the
+whole session into a no-op.
+
+**Gate vocabulary.** Where this skill or its reference files say "propose", "offer",
+"show a preview", "present for approval", or "wait for approval", that marks a Gated
+interaction point — not an unconditional instruction to pause. Under standing autonomy
+(including every unattended run), resolve each one the same way: if the action is in
+the additive scope, do it and record it in the change summary; if it is in the
+restricted scope, skip it and record it under Deferred Items. Never let a gate written
+for an interactive session stall an unattended run.
+
 ## Reporting Style
 
 Always report to the operator in Simplified Technical English (ASD-STE100): short
@@ -106,6 +130,43 @@ status theater and filler acknowledgements.
 A short change table plus a "what this means" line beats a long transcript. When work
 runs in the background, stay quiet until there is an outcome to report; do not post
 progress ticks. Give the result, then stop.
+
+## A Full Run
+
+An open-ended invocation — "run the skill", "curate the vault", "do a maintenance pass",
+a scheduled prompt — means one complete session of BOTH modes: the Steward sweep
+(Phases 1–5), then the Curator loop (Phases 1–3). The trigger phrases under each mode
+select that mode alone only when the operator names that specific job.
+
+A scan is a phase, not a session. Do not stop after the health scan: its report is input
+to the phases that follow, not the deliverable. Do not report a session complete unless
+at least one of these happened:
+
+- a safe repair was applied,
+- a note was created or substantively updated and linked into its hub,
+- a concrete blocker was found and is reported plainly.
+
+"The vault needed nothing" is almost never true — Curator Phase 1 step 6 always yields
+adjacent territory worth growing. If a session truly changed nothing, report what was
+attempted and why nothing was safe to do. A scan-only pass presented as a completed
+session is a failed run.
+
+## Session Continuity
+
+This skill often runs on a schedule. Each run must extend the last one, not repeat it.
+
+At session start, read the most recent session summary in the VAULT.md
+`session_log_folder` (or wherever the operator keeps run state). Honor its Deferred
+Items and next-run targets before choosing new work. Do not re-research a gap that a
+prior session filled or marked unfillable; search for an existing note before drafting
+one.
+
+At session close, write the summary to the log folder with explicit next-run targets:
+the top remaining gaps and any deferred repairs. On a tight schedule, one completed
+target from the queue is a valid session — rotate focus across hygiene categories and
+domains rather than forcing a full sweep into every tick. Hygiene work is idempotent;
+a clean re-scan is normal. Expansion work is not — never manufacture a near-duplicate
+note to satisfy the completion gate.
 
 ## Mode 1: Steward (Maintenance)
 
@@ -135,8 +196,9 @@ naming violations, tag anomalies, or misplaced notes. Compute those categories p
 `references/maintenance-ops.md`, which builds the vault index, an inbound-link map,
 and target-existence checks.
 
-Present the report as a summary table with counts per category, then offer to
-drill into any category.
+Present the report as a summary table with counts per category. In a Gated
+interactive session, offer to drill into any category; in a full run, carry the
+findings straight into Phase 2.
 
 ### Phase 2 — Standardize
 
@@ -274,12 +336,21 @@ If the vault lacks a `VAULT.md`, scan the vault and generate one:
    tag usage, and link style
 3. Identify the most common templates
 4. Draft a VAULT.md following the schema in `references/vault-config-spec.md`
-5. Present it to the user for review and approval before writing
+5. In an interactive session, present it for review and approval before writing.
+   In an unattended run, write it now: keep detected values, choose conservative
+   defaults for the rest (`approval_required_above: 3`, detected exclusions kept),
+   add the `> [!ai-generated]` callout, and list it first in the session summary
+   so the operator reviews it.
 
 This makes the skill immediately usable on any existing vault — the agent
 bootstraps its own configuration from what's already there.
 
 ## Session Close
+
+Before writing the summary, verify the session's own work: every link you added
+resolves, every new note's frontmatter parses and matches the VAULT.md schema, every
+new factual claim carries a source, every new note is linked from its hub, and no
+excluded path changed. Fix what fails verification before reporting it.
 
 Every Vault Keeper session ends with:
 
@@ -301,7 +372,13 @@ Every Vault Keeper session ends with:
 ### Review Command
 When VAULT.md `git_aware` is true (the default): `git diff --stat` or `git diff`.
 On a no-git vault: extract the snapshot, then `diff -r <extracted-snapshot> <vault>`; the change table above is the authoritative record.
+
+### Next-Run Targets
+- Ranked queue for the next session (see Session Continuity)
 ```
+
+When VAULT.md defines `session_log_folder`, also write this summary there — the next
+session reads it before choosing work.
 
 ## File Structure
 
