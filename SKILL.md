@@ -217,8 +217,13 @@ Produce a diagnostic report covering:
 - **Broken links**: wikilinks pointing to nonexistent files
 - **Duplicate candidates**: files with >70% title similarity or overlapping content
 - **Frontmatter violations**: notes missing required properties per VAULT.md schema
+- **Sparse frontmatter**: schema-defined optional properties left empty where a value
+  is derivable from the note (for example `tags`, `topic`, `aliases`, `source`) —
+  enrichment candidates, not errors
 - **Naming violations**: files not matching the convention in VAULT.md
 - **Tag anomalies**: typo variants, unused tags, tags outside the taxonomy
+- **Under-tagged notes**: notes whose `tags` property is empty or absent, or that carry
+  fewer tags than the VAULT.md `tag_floor` (default 1) — candidates for tag assignment
 - **Empty notes**: files with <20 characters of body content
 - **Misplaced notes**: files in folders that don't match their type/status
 
@@ -234,17 +239,29 @@ Present the report as a summary table with counts per category. In a Gated
 interactive session, offer to drill into any category; in a full run, carry the
 findings straight into Phase 2.
 
-### Phase 2 — Standardize
+### Phase 2 — Standardize and Enrich
+
+Standardizing fixes what is broken; enriching fills what is empty. Applying frontmatter
+properties and tagging documents is a first-class part of this job, not a side effect of
+repair. A note that satisfies the required schema but carries an empty `tags` property
+(or empty derivable optional properties) is still unfinished work.
 
 For each issue class, apply the fix defined in VAULT.md or use these defaults:
 
 | Issue | Default action |
 |-------|---------------|
 | Missing frontmatter | Add the fields named in VAULT.md `required`, values derived sensibly; set enum fields to a valid VAULT.md value. Do not add keys the vault schema omits. |
+| Empty optional properties | Populate schema-defined optional properties whose value is derivable from the note (for example `topic`, `aliases`, `source`, `updated`). Never invent a value; leave the property empty when the note does not support one. |
+| Untagged / under-tagged notes | Assign tags from the VAULT.md taxonomy that match the note's content; fill an empty or absent `tags` property up to the VAULT.md `tag_floor` (default 1). Use only tags the taxonomy allows; propose a new taxonomy entry rather than inventing an off-taxonomy tag. |
 | Naming violations | Propose rename following convention, update all inbound links |
 | Tag typos | Replace with closest valid tag from taxonomy |
 | Malformed YAML | Fix syntax, preserve all existing key-value pairs |
 | Empty notes | Flag for review, do not archive automatically |
+
+Enrichment stays inside the VAULT.md schema and taxonomy: populate only properties the
+schema defines, and tag only from the taxonomy. It is additive and reversible, so it
+falls under standing autonomy — but it still touches many files, so batch it behind the
+same preview/approval gate as any other bulk change (Safety Rule 2).
 
 Read `references/maintenance-ops.md` for detailed procedures on each operation.
 

@@ -74,6 +74,18 @@ Store this as a working index for all subsequent phases.
 - Fuzzy-match unrecognized tags to find typo variants (e.g., `#tech/ia` → `#tech/ai`)
 - Report: unknown tag, occurrence count, suggested correction
 
+**Under-tagged notes:**
+- Count taxonomy tags per note (frontmatter `tags:` plus inline `#tag`)
+- Flag notes below the VAULT.md `tag_floor` (default 1), including empty or absent `tags`
+- Exclude daily notes, templates, and structural hubs (`00-Index`, numbered sections)
+- Report: file, current tag count, candidate tags from content
+
+**Sparse frontmatter:**
+- For each note, list schema-defined optional properties that are empty or absent
+- Flag only those with a derivable value in the note (a body source URL for `source`,
+  an alternate title for `aliases`, a clear subject for `topic`)
+- Report: file, empty properties that could be populated
+
 **Empty/stub notes:**
 - Body content < 20 chars = empty
 - Body content < 100 words = stub
@@ -93,8 +105,10 @@ details section for each. Example:
 | Broken links | 7 | high |
 | Duplicate candidates | 4 | medium |
 | Frontmatter violations | 31 | medium |
+| Sparse frontmatter | 44 | low |
 | Naming violations | 12 | low |
 | Tag anomalies | 8 | low |
+| Under-tagged notes | 58 | medium |
 | Empty/stub notes | 15 | low |
 
 Total notes scanned: 342
@@ -136,18 +150,39 @@ Renaming is the highest-risk maintenance operation because it can break links.
 
 ### Procedure
 
-1. Read the required schema from VAULT.md
+1. Read the required and optional schema from VAULT.md
 2. For each note with violations:
    - Add each field named in VAULT.md `required`, deriving values sensibly: a
      string field from the filename or first H1, a date field from file mtime, an
-     enum field set to a valid VAULT.md value. Do not add `title`, `created`,
-     `tags`, or any key the vault schema omits.
+     enum field set to a valid VAULT.md value. Do not add any key the vault schema
+     does not define.
    - Fix type mismatches (string where list expected, etc.)
    - Preserve all existing valid fields — never strip unknown properties
    - Fix YAML syntax errors (unclosed quotes, bad indentation)
 3. For notes with no frontmatter at all:
    - Insert a complete frontmatter block at the top
    - Use the first H1 as the `title` if present
+
+### Enrichment — populating empty properties
+
+Standardization fixes required-field violations; enrichment fills schema-defined
+properties that are present-but-empty or absent-but-optional. Run it on every note the
+scan flags as sparse or under-tagged, not only on notes with violations.
+
+1. For each schema-defined optional property that is empty or absent, derive a value
+   only from what the note already supports:
+   - `topic` / `type`: from the note's dominant subject or the folder it sits in
+   - `aliases`: from an obvious alternate title the body uses (acronym, full form)
+   - `source`: from a source URL already present in the body
+   - `updated` / modification-date field: from the last real edit (file mtime)
+   - `tags`: see Tag Cleanup and Assignment below
+2. Never invent a value to fill a slot. If the note does not support a confident value,
+   leave the property empty and move on — a wrong property is worse than an empty one.
+3. Add only keys the schema defines. Enrichment never introduces new frontmatter keys,
+   and never overwrites a non-empty property.
+4. Enrichment is additive and reversible, but it is still a bulk edit: apply it behind
+   the preview/approval gate (or batch it into the session summary under standing
+   autonomy).
 
 ### YAML Gotchas
 
@@ -159,9 +194,14 @@ Renaming is the highest-risk maintenance operation because it can break links.
 
 ---
 
-## Tag Cleanup
+## Tag Cleanup and Assignment
 
-### Procedure
+Two jobs share the taxonomy: cleanup fixes wrong tags, assignment adds missing ones.
+A note with an empty or absent `tags` property is under-tagged, not merely untidy —
+tags are how the vault's notes find each other, so an untagged note is effectively
+invisible to tag-driven navigation and MOCs.
+
+### Cleanup procedure
 
 1. Build tag frequency map across the vault
 2. For each tag not in VAULT.md taxonomy:
@@ -169,6 +209,24 @@ Renaming is the highest-risk maintenance operation because it can break links.
    - If no match: propose adding to taxonomy or removing
 3. Apply corrections in bulk (with preview if >3 files)
 4. Update tag index/MOC if one exists
+
+### Assignment procedure
+
+Run this on every note the scan flags as under-tagged (empty/absent `tags`, or fewer
+tags than the VAULT.md `tag_floor`, default 1).
+
+1. Read the note's title, headings, and body to determine its dominant subjects.
+2. Match those subjects to existing taxonomy tags. Prefer the most specific tag the
+   content justifies (`tech/ai/agents` over `tech/ai` over `tech`), and prefer tags
+   already used on sibling notes in the same folder.
+3. Assign enough tags to reach the `tag_floor`, but only tags the content genuinely
+   supports — do not pad to the floor with weak matches. A single accurate tag beats
+   three vague ones.
+4. If the note's subject has no home in the taxonomy, do not invent an off-taxonomy
+   tag: propose a new taxonomy entry (a VAULT.md edit) and, until it is accepted, leave
+   the note under-tagged and record it under Deferred Items.
+5. Never remove or replace an existing valid tag during assignment — assignment only
+   adds. Cleanup handles corrections.
 
 ### Handling Nested Tags
 

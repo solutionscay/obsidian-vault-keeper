@@ -72,7 +72,14 @@ optional:
   - author: string
   - confidence: enum [high, medium, low, unverified]
   - type: enum [note, moc, daily, meeting, decision, reference, person]
+  - topic: string
 ```
+
+The keeper does more than enforce required properties. During the Steward sweep it
+also **enriches** frontmatter: it populates optional properties listed here when a
+value is derivable from the note, and it assigns `tags` from the taxonomy below. Only
+properties named in this schema are ever added — enrichment never invents a new key,
+and never overwrites a property that already holds a value.
 
 #### `## Tag Taxonomy`
 The approved tag hierarchy. Tags outside this list are flagged during health scans:
@@ -200,6 +207,7 @@ Directives for how the agent should interact with this vault:
 
 ```yaml
 approval_required_above: 3   # file count threshold for bulk preview
+tag_floor: 1                 # min taxonomy tags per note; below this = under-tagged (0 disables)
 max_new_notes_per_session: 10  # Curator cap; excess gaps queue as next-run targets
 git_aware: true              # end sessions with git diff commands
 provenance: strict            # strict | relaxed — how much sourcing is required
