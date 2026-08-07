@@ -68,6 +68,45 @@ This precedence covers configuration only; it does not relax the Safety Rules be
    VAULT.md Archive Policy (`external_archive`). If the vault declares neither git nor
    a snapshot path, stop and ask the operator to choose a recovery mechanism first.
 
+## Autonomy
+
+The skill runs under one of two authorization postures. Read which is in force from
+the operator's most recent instruction; when in doubt, default to Gated.
+
+- **Gated (default).** Present findings, then wait at each approval gate in the Safety
+  Rules before writing.
+- **Standing autonomy.** When the operator hands over open-ended control — "whatever
+  you want", "you decide", "go ahead and expand it", "this is your KB", "run
+  autonomously", or similar — proceed end-to-end through the active mode's phases
+  without pausing for per-item approval. Prefer action over asking: pick the sensible
+  default, do the work, and report it. Ask only when a choice is consequential AND
+  hard to reverse.
+
+Standing autonomy covers ONLY additive, reversible work: drafting new notes, adding
+links, gap analysis, freshness updates, MOCs. It never extends to deletes, renames that
+touch inbound links, merges, or bulk reformatting — those return to a Gated approval no
+matter how broad the grant, because they are hard to undo.
+
+Autonomy changes WHO approves, not WHAT is safe. Every Safety Rule still holds: snapshot
+before the first write on a no-git vault, source every claim, mark agent content with the
+callout, respect exclusion zones. Under autonomy, replace the per-item preview gate with
+one batched change summary at session close. Fan work out to subagents when a batch is
+large; keep cross-file edits (hubs, inbound links) central to avoid write races.
+
+## Reporting Style
+
+Always report to the operator in Simplified Technical English (ASD-STE100): short
+sentences, active voice, one idea per sentence, plain approved words.
+
+Lead with the outcome a human cares about — what changed in the vault, what is now true,
+what needs a decision. Do not narrate process. No per-subagent launch-and-finish
+play-by-play. No tool-by-tool commentary. No restating these instructions back. Cut
+status theater and filler acknowledgements.
+
+A short change table plus a "what this means" line beats a long transcript. When work
+runs in the background, stay quiet until there is an outcome to report; do not post
+progress ticks. Give the result, then stop.
+
 ## Mode 1: Steward (Maintenance)
 
 Trigger phrases: "clean up my vault", "standardize my notes", "fix my vault",
@@ -185,13 +224,24 @@ Read the `expansion_domains` section of VAULT.md to understand what the vault
    fall back to filesystem mtime if none) — is older than the VAULT.md threshold
    (default: 6 months) on fast-moving topics
 5. **Surface implicit gaps**: Topics that adjacent notes imply but no note covers
+6. **Explore adjacent territory**: Do not stop at the declared `expansion_domains`.
+   Propose genuinely new topics that neighbor the vault's interests — a subfield the
+   domains only touch, a thinker or tool the notes keep circling, an emerging area a
+   deep domain will soon need. Treat the vault as a living KB to grow, not a fixed
+   checklist to complete. Mark these as `new-territory` in the gap report so they are
+   easy to tell from in-domain fills. When a new-territory cluster proves substantial,
+   offer to register it as a new domain in VAULT.md `expansion_domains` (a VAULT.md edit
+   is a normal write, not a restricted structural change).
 
-Present findings as a prioritized gap report: topic, gap type, priority
-(based on how central the topic is to the vault's domains), and suggested action.
+Present findings as a prioritized gap report: topic, gap type (in-domain / connection /
+implicit / `new-territory`), priority (how central to the vault's interests), and
+suggested action. Under **standing autonomy** (see Autonomy), do not stop at the report —
+select the strongest gaps yourself and continue into Phase 2.
 
 ### Phase 2 — Research & Draft
 
-For each approved gap:
+For each gap approved by the operator — or, under standing autonomy, each gap the skill
+selects:
 
 1. **Search the web** for current, authoritative sources on the topic
 2. **Draft a new note** following the vault's templates and conventions:
