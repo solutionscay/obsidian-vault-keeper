@@ -133,7 +133,10 @@ should go learn.
 Mechanics do not belong in the chat report. Counts, link repairs, snapshot paths,
 frontmatter fixes, verification results, and health deltas go in the session summary
 file (see Session Close); in chat, give that file's path in a single line at the end.
-Mention a mechanical detail in chat only when the operator must act on it.
+Mention a mechanical detail in chat only when the operator must act on it. The
+skill's own tooling problems and config conflicts are Deferred Items footnotes, never
+the story — a report whose news is about the janitor's tools instead of the vault's
+knowledge is a failed report.
 
 The coffee test: would a colleague say this to the operator's face? "I added
 frontmatter to 14 files and verified 915 links" fails. "Your notes kept circling a
@@ -165,6 +168,13 @@ adjacent territory worth growing. If a session truly changed nothing, report wha
 attempted and why nothing was safe to do. A scan-only pass presented as a completed
 session is a failed run.
 
+A blocked target does not complete a session. When the current target cannot be done
+safely — bad tooling, ambiguous data, a config conflict — record the blocker under
+Deferred Items and take the NEXT target. Hygiene blockers never block expansion: the
+Curator loop stays open as long as the vault has a fillable gap. A session that ends
+with no knowledge improvement must show why expansion specifically was impossible,
+not why one hygiene task was.
+
 ## Session Continuity
 
 This skill often runs on a schedule. Each run must extend the last one, not repeat it.
@@ -176,11 +186,13 @@ prior session filled or marked unfillable; search for an existing note before dr
 one.
 
 At session close, write the summary to the log folder with explicit next-run targets:
-the top remaining gaps and any deferred repairs. On a tight schedule, one completed
+the top remaining gaps and any deferred repairs. On a tight schedule, one COMPLETED
 target from the queue is a valid session — rotate focus across hygiene categories and
-domains rather than forcing a full sweep into every tick. Hygiene work is idempotent;
-a clean re-scan is normal. Expansion work is not — never manufacture a near-duplicate
-note to satisfy the completion gate.
+domains rather than forcing a full sweep into every tick. An attempted target is not a
+completed one: if the queued target turns out to be blocked, defer it and take the next
+target in the same session; an expansion gap is always a valid next target. Hygiene
+work is idempotent; a clean re-scan is normal. Expansion work is not — never
+manufacture a near-duplicate note to satisfy the completion gate.
 
 ## Mode 1: Steward (Maintenance)
 
@@ -396,7 +408,10 @@ On a no-git vault: extract the snapshot, then `diff -r <extracted-snapshot> <vau
 ```
 
 When VAULT.md defines `session_log_folder`, also write this summary there — the next
-session reads it before choosing work.
+session reads it before choosing work. If `session_log_folder` is unset, or resolves
+inside an excluded or read-only path, that is not a policy question: fall back to
+`external_archive` (or the snapshot location), note the fallback once in the summary,
+and continue.
 
 ## File Structure
 

@@ -204,7 +204,9 @@ max_new_notes_per_session: 10  # Curator cap; excess gaps queue as next-run targ
 git_aware: true              # end sessions with git diff commands
 provenance: strict            # strict | relaxed — how much sourcing is required
 ai_content_marking: callout   # callout | frontmatter | none
-session_log_folder: 90-system/session-log/
+session_log_folder: 90-system/session-log/  # must not sit inside excluded_paths or
+                                            # read_only_paths; if it does, the skill
+                                            # falls back to external_archive
 ```
 
 ## Starter Template
