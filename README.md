@@ -74,7 +74,7 @@ obsidian-vault-keeper/
 ## Install
 
 Put this folder in your agent skills directory, for example
-`~/.claude/skills/obsidian-vault-keeper/`. The agent loads the skill when your request
+`~/.agents/skills/obsidian-vault-keeper/`. The agent loads the skill when your request
 matches its triggers.
 
 ## License
