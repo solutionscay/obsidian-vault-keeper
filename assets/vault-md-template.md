@@ -124,6 +124,9 @@ excluded_paths:
 read_only_paths:
   - 90-system/templates/
   - 90-system/skills/
+
+accepted_orphan_zones:
+  - daily/
 ```
 
 ## Expansion Domains

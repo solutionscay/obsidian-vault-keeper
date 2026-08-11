@@ -22,8 +22,8 @@ additive-scope action and record it; defer restricted-scope actions instead of w
 
 ### Step 1 — Build the coverage map
 
-Read VAULT.md `expansion_domains` to understand intended scope. Exclude
-`excluded_paths`, `read_only_paths`, and `accepted_orphan_zones` from every count,
+Read `domains` in the VAULT.md `Expansion Domains` section. Exclude
+`excluded_paths` and `read_only_paths` from every count,
 and skip structural files (folder `00-Index` hubs, numbered report sections, and
 auto-generated notes) so they do not read as thin coverage. Then:
 
@@ -35,7 +35,7 @@ auto-generated notes) so they do not read as thin coverage. Then:
 
 ### Step 2 — Score coverage depth
 
-For each domain in `expansion_domains`, score coverage:
+For each domain in `Expansion Domains.domains`, score coverage:
 
 | Score | Meaning | Criteria |
 |-------|---------|----------|
@@ -267,7 +267,7 @@ When sources disagree:
 
 ### Procedure
 
-1. Read VAULT.md `expansion_domains` for freshness thresholds per domain
+1. Read `domains` in VAULT.md `Expansion Domains` for each freshness threshold
 2. Identify notes in each domain whose VAULT.md-declared modification-date field
    (fall back to filesystem mtime if the schema names none) is older than the
    threshold. If most notes in a domain share one recent value for that field
@@ -311,9 +311,16 @@ Run the full gap analysis procedure above. Present the gap report.
 ### Step 2 — Gap Selection
 In a Gated session, present the top 5-10 gaps with recommended actions and let the
 operator select which to fill. Under standing autonomy — including every unattended
-run — select the gaps yourself: highest priority first, bounded by the session note
-cap. Record the selection and the reasoning in the session summary. Do not wait for
-a selection that cannot come.
+run — select the gaps yourself. Apply the Curator rotation rule in SKILL.md before
+you use the normal priority order. The session note cap still applies.
+
+After three consecutive runs in one domain, select a different domain. Prefer an
+under-covered domain. Select a `new-territory` gap if no declared domain qualifies.
+Do not select an exhausted domain until the operator renews it. A queued target does
+not renew a domain.
+
+Record the domain, the prior count, and the decision in the session summary. Do not
+wait for a selection that cannot come.
 
 ### Step 3 — Research Batch
 For each selected gap:

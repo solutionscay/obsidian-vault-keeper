@@ -138,7 +138,8 @@ templates:
 ```
 
 #### `## Exclusions`
-Paths the agent must never read or modify:
+The agent must not read or modify `excluded_paths`. The agent can read
+`read_only_paths`, but it must not modify them. The health scan skips both lists.
 
 ```yaml
 excluded_paths:
@@ -150,7 +151,13 @@ excluded_paths:
 read_only_paths:
   - 90-system/templates/     # Templates are referenced, not modified
   - 90-system/skills/        # Skills are used, not rewritten
+
+accepted_orphan_zones:
+  - daily/                   # Scan these notes, but omit them from orphan reports
 ```
+
+Use `excluded_paths` as the canonical key. If it is absent, the skill accepts the
+old `exclusions` key as an alias.
 
 #### `## Expansion Domains`
 Topics the vault should cover. The Curator uses this to find gaps:
@@ -181,6 +188,9 @@ domains:
       - "Habits"
     freshness: 12_months
 ```
+
+Use `domains` as the canonical key in this section. If it is absent, the skill
+accepts the old `expansion_domains` key as an alias.
 
 #### `## Archive Policy`
 ```yaml

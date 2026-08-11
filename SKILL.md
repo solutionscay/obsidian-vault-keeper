@@ -66,8 +66,9 @@ This precedence covers configuration only; it does not relax the Safety Rules be
 7. **End every session with a change summary.** List files changed, actions taken,
    and a review command: give `git diff` when VAULT.md `git_aware` is true (the
    default); on a no-git vault, give the snapshot path and a diff against it.
-8. **Respect exclusion zones.** Never read or modify paths listed under
-   `exclusions` in VAULT.md.
+8. **Respect exclusion zones.** Never read or modify paths in VAULT.md
+   `excluded_paths`. Do not modify paths in `read_only_paths`. Skip both path lists
+   during a health scan.
 9. **Snapshot before writing on a no-git vault.** If VAULT.md sets `git_aware: false`,
    create a recovery snapshot before the first write, using the recovery path in
    VAULT.md Archive Policy (`external_archive`). If the vault declares neither git nor
@@ -202,6 +203,22 @@ target in the same session; an expansion gap is always a valid next target. Hygi
 work is idempotent; a clean re-scan is normal. Expansion work is not — never
 manufacture a near-duplicate note to satisfy the completion gate.
 
+Apply this rule before you select an autonomous Curator target:
+
+1. Read the Curator Focus record in each recent session summary.
+2. Count consecutive autonomous runs that selected the same primary domain.
+3. After three runs, remove that domain from the candidate list.
+4. Select an under-covered domain that has a fillable gap.
+5. If no declared domain qualifies, select a `new-territory` gap.
+6. Do not select an exhausted domain until the operator renews it.
+
+The first selected Curator gap is the primary domain for the session. A queued target
+does not renew a domain. Only a clear operator instruction renews a domain.
+
+Order the eligible domains before selection. Put under-covered domains first. Put a
+`new-territory` candidate last. Use `scripts/curator-domain-select.sh` to apply the
+three-run limit.
+
 ## Mode 1: Steward (Maintenance)
 
 Trigger phrases: "clean up my vault", "standardize my notes", "fix my vault",
@@ -224,7 +241,7 @@ Produce a diagnostic report covering:
 - **Tag anomalies**: typo variants, unused tags, tags outside the taxonomy
 - **Under-tagged notes**: notes whose `tags` property is empty or absent, or that carry
   fewer tags than the VAULT.md `tag_floor` (default 1) — candidates for tag assignment
-- **Empty notes**: files with <20 characters of body content
+- **Empty notes**: files with fewer than 20 non-whitespace body characters
 - **Misplaced notes**: files in folders that don't match their type/status
 
 Run `scripts/vault-health-scan.sh <vault>` first for baseline metrics (total notes,
@@ -302,8 +319,8 @@ Apply consistent formatting per VAULT.md conventions (or defaults):
 - Callout style for warnings, tips, references
 - Code block language tags
 - Consistent list style (bullets vs numbers)
-- Normalize whitespace: collapse blank-line runs to the VAULT.md `blank_lines` value
-  (default 1)
+- Normalize whitespace: collapse blank-line runs to the VAULT.md
+  `blank_lines_between_sections` value (default 1)
 
 Notes converted from PDF, HTML, or DOCX often carry scrape cruft (cookie banners, nav
 breadcrumbs, video-player labels, split list numbers, drop-cap artifacts, garbled
@@ -320,14 +337,14 @@ The Curator analyzes the vault's coverage and autonomously researches + fills ga
 
 ### Phase 1 — Gap Analysis
 
-Read the `expansion_domains` section of VAULT.md to understand what the vault
-*should* cover. Then:
+Read `domains` in the VAULT.md `Expansion Domains` section. This list defines what
+the vault should cover. Then:
 
 1. **Map existing coverage**: Build a topic inventory from folder structure,
    tags, MOCs, and note titles
 2. **Identify thin areas**: Topics with fewer than 3 notes, or notes that are
    mostly stubs (<100 words). First subtract VAULT.md `excluded_paths`,
-   `read_only_paths`, and `accepted_orphan_zones`, and skip structural files (folder
+   `read_only_paths`, and skip structural files (folder
    `00-Index` hubs, numbered report sections, auto-generated notes) so they do not
    inflate the thin-area count
 3. **Find missing connections**: Topics referenced in notes but lacking their
@@ -337,14 +354,14 @@ Read the `expansion_domains` section of VAULT.md to understand what the vault
    fall back to filesystem mtime if none) — is older than the VAULT.md threshold
    (default: 6 months) on fast-moving topics
 5. **Surface implicit gaps**: Topics that adjacent notes imply but no note covers
-6. **Explore adjacent territory**: Do not stop at the declared `expansion_domains`.
+6. **Explore adjacent territory**: Do not stop at the declared expansion domains.
    Propose genuinely new topics that neighbor the vault's interests — a subfield the
    domains only touch, a thinker or tool the notes keep circling, an emerging area a
    deep domain will soon need. Treat the vault as a living KB to grow, not a fixed
    checklist to complete. Mark these as `new-territory` in the gap report so they are
    easy to tell from in-domain fills. When a new-territory cluster proves substantial,
-   offer to register it as a new domain in VAULT.md `expansion_domains` (a VAULT.md edit
-   is a normal write, not a restricted structural change).
+   offer to add it to VAULT.md `Expansion Domains.domains`. A VAULT.md edit is a
+   normal write, not a restricted structural change.
 
 Present findings as a prioritized gap report: topic, gap type (in-domain / connection /
 implicit / `new-territory`), priority (how central to the vault's interests), and
@@ -424,6 +441,12 @@ Every Vault Keeper session ends with:
 - Before: [counts]
 - After: [counts]
 
+### Curator Focus
+- Domain: [primary domain or none]
+- Previous consecutive runs: [count]
+- Decision: [continue, rotate-after-three, new-territory, or operator-renewal]
+- Exhausted domains: [domain list or none]
+
 ### Review Command
 When VAULT.md `git_aware` is true (the default): `git diff --stat` or `git diff`.
 On a no-git vault: extract the snapshot, then `diff -r <extracted-snapshot> <vault>`; the change table above is the authoritative record.
@@ -448,9 +471,12 @@ obsidian-vault-keeper/
 │   ├── maintenance-ops.md        # Detailed maintenance procedures
 │   └── expansion-ops.md          # Research and expansion procedures
 ├── scripts/
+│   ├── curator-domain-select.sh  # Curator domain rotation (bash)
 │   └── vault-health-scan.sh      # Automated health scan (bash)
-└── assets/
-    └── vault-md-template.md      # Copy-paste VAULT.md starter
+├── assets/
+│   └── vault-md-template.md      # Copy-paste VAULT.md starter
+└── tests/
+    └── run-tests.sh              # Deterministic contract tests
 ```
 
 Read the reference files when you need the detailed procedure for a specific

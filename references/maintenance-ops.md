@@ -28,7 +28,8 @@ instead of waiting.
 
 ### Step 1 — Build the vault index
 
-Walk the vault directory tree, excluding paths in VAULT.md `exclusions`.
+Walk the vault directory tree. Skip paths in VAULT.md `excluded_paths` and
+`read_only_paths`.
 For each `.md` file, extract:
 
 - File path and name
@@ -46,6 +47,7 @@ Store this as a working index for all subsequent phases.
 - Build an inbound link map: for each note, count how many other notes link to it
 - Orphans = notes with zero inbound links
 - Exclude from orphan report: daily notes, templates, MOCs, VAULT.md, README
+- Exclude paths in VAULT.md `accepted_orphan_zones`
 - Severity: low (resource notes can be orphans legitimately), medium (project/area notes)
 
 **Broken link detection:**
@@ -87,8 +89,8 @@ Store this as a working index for all subsequent phases.
 - Report: file, empty properties that could be populated
 
 **Empty/stub notes:**
-- Body content < 20 chars = empty
-- Body content < 100 words = stub
+- Body content with fewer than 20 non-whitespace characters is empty
+- A non-empty body with fewer than 100 words is a stub
 - Report with creation date (older stubs are more likely abandoned)
 
 ### Step 3 — Generate the report
@@ -367,7 +369,8 @@ Apply formatting rules from VAULT.md `formatting_rules` section. Defaults:
    item (for example `- **Note:** ...`). Convert a bold-only line that sits directly
    above a paragraph into a heading at the `heading_start` level. Leave inline
    emphasis inside prose unchanged.
-4. **Whitespace**: Collapse blank-line runs to the VAULT.md `blank_lines` value
+4. **Whitespace**: Collapse blank-line runs to the VAULT.md
+   `blank_lines_between_sections` value
    (default 1)
 5. **Lists**: Normalize to configured style (dash/asterisk/plus)
 6. **Code blocks**: Add language tags to bare fenced blocks where detectable

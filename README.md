@@ -25,8 +25,9 @@ policy.
 from a default in this skill, the `VAULT.md` value wins.
 
 If the vault has no `VAULT.md`, the skill can make one. It scans the vault, detects
-the current conventions, drafts a `VAULT.md`, and shows it to you. It writes the file
-only after you approve it.
+the current conventions, and drafts a `VAULT.md`. In a gated session, it asks for
+approval. In an unattended session, it writes a conservative draft and marks it for
+review.
 
 ## How to use it
 
@@ -35,8 +36,8 @@ only after you approve it.
 2. Tell the agent what you want. For maintenance, use words such as "clean up my
    vault" or "audit my vault". For expansion, use words such as "find gaps in my
    vault" or "grow my knowledge base".
-3. Review each preview. The skill shows a plan before a bulk change and waits for your
-   approval.
+3. Review each preview in a gated session. Standing autonomy permits safe and
+   reversible work without each preview.
 4. Read the session summary at the end. It lists the files that changed and gives a
    command to review the changes.
 
@@ -49,6 +50,10 @@ The skill obeys these rules.
 - It keeps wikilinks and frontmatter correct.
 - It marks agent-written content with an `[!ai-generated]` callout.
 - It gives a source for each new claim.
+
+An unattended session uses standing autonomy for safe and reversible work. It records
+restricted work as a deferred item. The Curator changes its primary domain after three
+consecutive runs unless the operator renews that domain.
 
 For a vault with no git, set `git_aware: false` in `VAULT.md` and give a snapshot path
 in `external_archive`. The skill makes a snapshot before the first write. It uses that
@@ -64,9 +69,12 @@ obsidian-vault-keeper/
     maintenance-ops.md         Steward procedures (how)
     expansion-ops.md           Curator procedures (how)
   scripts/
+    curator-domain-select.sh   Curator domain rotation (bash)
     vault-health-scan.sh       baseline health metrics (bash)
   assets/
     vault-md-template.md       a copy-and-edit VAULT.md starter
+  tests/
+    run-tests.sh               deterministic contract tests
 ```
 
 `SKILL.md` gives the what and the when. The reference files give the how.
