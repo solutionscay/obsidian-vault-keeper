@@ -27,12 +27,6 @@ from a default in this skill, the `VAULT.md` value wins.
 If the vault has no `VAULT.md`, the skill scans the vault, detects the current
 conventions, writes a conservative draft, and marks it for review.
 
-## Research depth
-
-The expansion workflow has a separate research-preference page for deep, non-superficial source work: [`docs/research-depth-standard.md`](docs/research-depth-standard.md). It defines corpus mining, primary-source discovery, article/newsletter/PDF retrieval, source manifests, minimum evidence, and closeout tests.
-
-The skill remains responsible for execution and safety. The wiki page records the research preference and can evolve without turning every preference into a hard-coded skill behavior.
-
 ## How to use it
 
 1. Make sure the vault has a `VAULT.md` at its root. If it does not, ask the skill to
