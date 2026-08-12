@@ -177,6 +177,16 @@ callout_style: obsidian
 approval_required_above: 3
 tag_floor: 1                 # min taxonomy tags per note; below this = under-tagged (0 disables)
 max_new_notes_per_session: 10
+inbox_folder: 00-inbox/
+root_allowed_files:
+  - VAULT.md
+  - README.md
+placement_rules:
+  type/daily: daily/
+  type/project: 10-projects/
+  type/moc: 90-system/indexes/
+  type/reference: 30-resources/
+  status/archive: 40-archive/
 git_aware: true
 provenance: strict
 ai_content_marking: callout

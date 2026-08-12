@@ -55,6 +55,10 @@ An unattended session uses standing autonomy for safe and reversible work. It re
 restricted work as a deferred item. The Curator changes its primary domain after three
 consecutive runs unless the operator renews that domain.
 
+The Steward keeps ordinary notes out of the vault root. VAULT.md defines the allowed
+root files, the inbox folder, and optional placement rules. The Steward reports root
+note moves until the operator permits structural changes.
+
 For a vault with no git, set `git_aware: false` in `VAULT.md` and give a snapshot path
 in `external_archive`. The skill makes a snapshot before the first write. It uses that
 snapshot as the recovery point.
@@ -70,6 +74,7 @@ obsidian-vault-keeper/
     expansion-ops.md           Curator procedures (how)
   scripts/
     curator-domain-select.sh   Curator domain rotation (bash)
+    root-note-organize.sh      root note report and approved moves (bash)
     vault-health-scan.sh       baseline health metrics (bash)
   assets/
     vault-md-template.md       a copy-and-edit VAULT.md starter

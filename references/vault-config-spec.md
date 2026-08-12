@@ -219,6 +219,16 @@ Directives for how the agent should interact with this vault:
 approval_required_above: 3   # file count threshold for bulk preview
 tag_floor: 1                 # min taxonomy tags per note; below this = under-tagged (0 disables)
 max_new_notes_per_session: 10  # Curator cap; excess gaps queue as next-run targets
+inbox_folder: 00-inbox/      # fallback destination for misplaced root notes
+root_allowed_files:          # Markdown files that can stay at the vault root
+  - VAULT.md
+  - README.md
+placement_rules:             # optional destinations for root notes
+  type/daily: daily/
+  type/project: 10-projects/
+  type/moc: 90-system/indexes/
+  type/reference: 30-resources/
+  status/archive: 40-archive/
 git_aware: true              # end sessions with git diff commands
 provenance: strict            # strict | relaxed — how much sourcing is required
 ai_content_marking: callout   # callout | frontmatter | none
@@ -244,9 +254,11 @@ When a vault has no VAULT.md, the Vault Keeper can generate one:
    - Tag usage patterns
 3. Check for existing templates folder
 4. Check for `.obsidian/` to confirm it's an Obsidian vault
-5. Draft VAULT.md with detected patterns as defaults
-6. In an interactive session: present with `[detected]` annotations so the user
+5. Detect an inbox folder and intentional root Markdown files
+6. Write the detected values to `inbox_folder` and `root_allowed_files`
+7. Draft VAULT.md with detected patterns as defaults
+8. In an interactive session: present with `[detected]` annotations so the user
    can correct, and write only after explicit approval
-7. In an unattended run: write the draft now — keep detected values, choose
+9. In an unattended run: write the draft now — keep detected values, choose
    conservative defaults for the rest, add the `> [!ai-generated]` callout, and
    flag it for operator review at the top of the session summary

@@ -93,6 +93,13 @@ Store this as a working index for all subsequent phases.
 - A non-empty body with fewer than 100 words is a stub
 - Report with creation date (older stubs are more likely abandoned)
 
+**Root folder:**
+- List all root Markdown files
+- Remove files in VAULT.md `root_allowed_files` from the list
+- Classify each remaining file as a misplaced root note
+- Report the total, allowed, and misplaced counts
+- Report each misplaced root note path
+
 ### Step 3 — Generate the report
 
 Format as a Markdown summary with counts per category, then a collapsible
@@ -406,6 +413,33 @@ Do not delete content you cannot classify — flag it for review instead.
 ---
 
 ## Folder Organization
+
+### Root folder
+
+Keep only files in VAULT.md `root_allowed_files` at the vault root. The defaults are
+`VAULT.md` and `README.md`. Do not create an ordinary note at the vault root.
+
+Run `scripts/root-note-organize.sh <vault>` to get the move plan. The script uses the
+first destination that these rules supply:
+
+1. Use a matching VAULT.md `placement_rules` entry.
+2. If no rule matches, use VAULT.md `inbox_folder`.
+3. If the inbox key is absent, use `00-inbox/` only when that folder exists.
+4. If no destination exists, defer the note.
+
+Do not use the note title to make a folder. Do not create a folder during the health
+scan. Defer the note if its type and status give different destinations.
+
+A root-note move is a structural change. In a Gated session, show the source,
+destination, and reason. Use `scripts/root-note-organize.sh --apply <vault>` after the
+operator permits the moves.
+
+In an unattended run, report the plan as Deferred Items. Standing autonomy does not
+permit a root-note move unless the operator also permits structural moves.
+
+Before each move, make sure that the destination does not exist. After each move,
+update path-qualified inbound links. Then check all affected links. Never move an
+allowed root file or a note with an ambiguous destination.
 
 ### Misplacement Detection
 

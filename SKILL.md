@@ -243,6 +243,7 @@ Produce a diagnostic report covering:
   fewer tags than the VAULT.md `tag_floor` (default 1) — candidates for tag assignment
 - **Empty notes**: files with fewer than 20 non-whitespace body characters
 - **Misplaced notes**: files in folders that don't match their type/status
+- **Misplaced root notes**: root Markdown files not in VAULT.md `root_allowed_files`
 
 Run `scripts/vault-health-scan.sh <vault>` first for baseline metrics (total notes,
 per-folder counts, empty and stub notes, notes missing a frontmatter fence, unique
@@ -251,6 +252,9 @@ not the full diagnostics: the script does not detect orphans, broken links, dupl
 naming violations, tag anomalies, or misplaced notes. Compute those categories per
 `references/maintenance-ops.md`, which builds the vault index, an inbound-link map,
 and target-existence checks.
+
+The vault root contains only files in VAULT.md `root_allowed_files`. The defaults are
+`VAULT.md` and `README.md`. Do not create an ordinary note in the vault root.
 
 Present the report as a summary table with counts per category. In a Gated
 interactive session, offer to drill into any category; in a full run, carry the
@@ -303,8 +307,12 @@ valid result, not a reason to force a merge.
 
 - Generate or update **Maps of Content (MOCs)** for each major topic area
 - Suggest folder moves for misplaced notes (per VAULT.md structure)
+- Run `scripts/root-note-organize.sh <vault>` to report misplaced root notes
 - Propose new links between related but unconnected notes
 - Update the tag index if VAULT.md defines one
+
+Use `scripts/root-note-organize.sh --apply <vault>` only after the operator permits
+structural moves. A standing-autonomy or unattended run does not give this permission.
 
 ### Phase 5 — Format
 
@@ -403,8 +411,10 @@ If the vault lacks a `VAULT.md`, scan the vault and generate one:
 2. Sample 20-30 notes to detect naming conventions, frontmatter patterns,
    tag usage, and link style
 3. Identify the most common templates
-4. Draft a VAULT.md following the schema in `references/vault-config-spec.md`
-5. In an interactive session, present it for review and approval before writing.
+4. Detect an existing inbox folder and intentional root Markdown files
+5. Write these values to `inbox_folder` and `root_allowed_files`
+6. Draft a VAULT.md following the schema in `references/vault-config-spec.md`
+7. In an interactive session, present it for review and approval before writing.
    In an unattended run, write it now: keep detected values, choose conservative
    defaults for the rest (`approval_required_above: 3`, detected exclusions kept),
    add the `> [!ai-generated]` callout, and list it first in the session summary
@@ -441,6 +451,13 @@ Every Vault Keeper session ends with:
 - Before: [counts]
 - After: [counts]
 
+### Root Folder
+- Total root Markdown files: [count]
+- Allowed root files: [count]
+- Misplaced root notes: [count and paths]
+- Moved notes: [count and paths]
+- Deferred notes: [count, paths, and reasons]
+
 ### Curator Focus
 - Domain: [primary domain or none]
 - Previous consecutive runs: [count]
@@ -472,6 +489,7 @@ obsidian-vault-keeper/
 │   └── expansion-ops.md          # Research and expansion procedures
 ├── scripts/
 │   ├── curator-domain-select.sh  # Curator domain rotation (bash)
+│   ├── root-note-organize.sh     # Root note report and approved moves (bash)
 │   └── vault-health-scan.sh      # Automated health scan (bash)
 ├── assets/
 │   └── vault-md-template.md      # Copy-paste VAULT.md starter
