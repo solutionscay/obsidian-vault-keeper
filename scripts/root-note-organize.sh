@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Report root notes and apply approved moves.
+# Report root-note moves or apply them.
 # Usage: root-note-organize.sh [--apply] /path/to/vault
 
 set -euo pipefail
@@ -284,8 +284,7 @@ while IFS= read -r -d '' source; do
     fi
 
     if [ "$APPLY" = false ]; then
-        echo "DEFER: $name | structural approval needed | destination: $destination_folder/$name | reason: $placement_reason"
-        DEFERRED=$((DEFERRED + 1))
+        echo "PLAN: $name -> $destination_folder/$name | reason: $placement_reason"
         continue
     fi
 

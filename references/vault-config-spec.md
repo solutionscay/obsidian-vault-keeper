@@ -216,7 +216,7 @@ callout_style: obsidian      # > [!type] format
 Directives for how the agent should interact with this vault:
 
 ```yaml
-approval_required_above: 3   # file count threshold for bulk preview
+bulk_report_above: 3         # file count threshold for a detailed change table
 tag_floor: 1                 # min taxonomy tags per note; below this = under-tagged (0 disables)
 max_new_notes_per_session: 10  # Curator cap; excess gaps queue as next-run targets
 inbox_folder: 00-inbox/      # fallback destination for misplaced root notes
@@ -257,8 +257,6 @@ When a vault has no VAULT.md, the Vault Keeper can generate one:
 5. Detect an inbox folder and intentional root Markdown files
 6. Write the detected values to `inbox_folder` and `root_allowed_files`
 7. Draft VAULT.md with detected patterns as defaults
-8. In an interactive session: present with `[detected]` annotations so the user
-   can correct, and write only after explicit approval
-9. In an unattended run: write the draft now — keep detected values, choose
-   conservative defaults for the rest, add the `> [!ai-generated]` callout, and
-   flag it for operator review at the top of the session summary
+8. Write the draft with `[detected]` annotations, conservative defaults, and the
+   `> [!ai-generated]` callout. Flag it for operator review in the session summary.
+9. In explicit preview-only mode, present the draft without writing it.

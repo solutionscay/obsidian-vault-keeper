@@ -134,8 +134,8 @@ printf 'collision body\n' > "$ORGANIZE_VAULT/collision.md"
 printf 'existing body\n' > "$ORGANIZE_VAULT/00-inbox/collision.md"
 
 PLAN_OUTPUT=$("$ORGANIZE" "$ORGANIZE_VAULT")
-assert_contains "$PLAN_OUTPUT" 'DEFER: project.md | structural approval needed | destination: 10-projects/project.md | reason: placement rule: type/project'
-assert_contains "$PLAN_OUTPUT" 'DEFER: loose.md | structural approval needed | destination: 00-inbox/loose.md | reason: inbox fallback'
+assert_contains "$PLAN_OUTPUT" 'PLAN: project.md -> 10-projects/project.md | reason: placement rule: type/project'
+assert_contains "$PLAN_OUTPUT" 'PLAN: loose.md -> 00-inbox/loose.md | reason: inbox fallback'
 [ -f "$ORGANIZE_VAULT/project.md" ] || fail 'The plan moved a root note.'
 
 APPLY_OUTPUT=$("$ORGANIZE" --apply "$ORGANIZE_VAULT")

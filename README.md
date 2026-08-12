@@ -24,10 +24,8 @@ policy.
 `VAULT.md` is authoritative for configuration. Where a value in `VAULT.md` differs
 from a default in this skill, the `VAULT.md` value wins.
 
-If the vault has no `VAULT.md`, the skill can make one. It scans the vault, detects
-the current conventions, and drafts a `VAULT.md`. In a gated session, it asks for
-approval. In an unattended session, it writes a conservative draft and marks it for
-review.
+If the vault has no `VAULT.md`, the skill scans the vault, detects the current
+conventions, writes a conservative draft, and marks it for review.
 
 ## How to use it
 
@@ -36,8 +34,8 @@ review.
 2. Tell the agent what you want. For maintenance, use words such as "clean up my
    vault" or "audit my vault". For expansion, use words such as "find gaps in my
    vault" or "grow my knowledge base".
-3. Review each preview in a gated session. Standing autonomy permits safe and
-   reversible work without each preview.
+3. The skill completes maintenance and curation autonomously. Ask for preview-only
+   mode when you do not want it to write.
 4. Read the session summary at the end. It lists the files that changed and gives a
    command to review the changes.
 
@@ -46,18 +44,19 @@ review.
 The skill obeys these rules.
 
 - It does not delete a note. It moves the note to the archive folder.
-- It shows a preview and waits for approval before a bulk change.
+- It records bulk changes in a reviewable table.
 - It keeps wikilinks and frontmatter correct.
 - It marks agent-written content with an `[!ai-generated]` callout.
 - It gives a source for each new claim.
 
-An unattended session uses standing autonomy for safe and reversible work. It records
-restricted work as a deferred item. The Curator changes its primary domain after three
-consecutive runs unless the operator renews that domain.
+Interactive, unattended, and scheduled sessions use autonomy by default. The skill
+can move, rename, merge, and format notes after it creates the required recovery point.
+It defers only ambiguous or unsafe work. The Curator changes its primary domain after
+three consecutive runs unless the operator renews that domain.
 
 The Steward keeps ordinary notes out of the vault root. VAULT.md defines the allowed
-root files, the inbox folder, and optional placement rules. The Steward reports root
-note moves until the operator permits structural changes.
+root files, the inbox folder, and optional placement rules. The Steward applies clear
+root-note moves and updates affected links.
 
 For a vault with no git, set `git_aware: false` in `VAULT.md` and give a snapshot path
 in `external_archive`. The skill makes a snapshot before the first write. It uses that
@@ -74,7 +73,7 @@ obsidian-vault-keeper/
     expansion-ops.md           Curator procedures (how)
   scripts/
     curator-domain-select.sh   Curator domain rotation (bash)
-    root-note-organize.sh      root note report and approved moves (bash)
+    root-note-organize.sh      root note plan and moves (bash)
     vault-health-scan.sh       baseline health metrics (bash)
   assets/
     vault-md-template.md       a copy-and-edit VAULT.md starter

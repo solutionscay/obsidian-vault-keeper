@@ -3,9 +3,9 @@
 Detailed procedures for Curator mode — finding knowledge gaps, researching
 topics, and autonomously expanding the vault.
 
-Approval language in this file marks Gated interaction points. Resolve every one per
-the SKILL.md Autonomy section: under standing autonomy or in an unattended run, do the
-additive-scope action and record it; defer restricted-scope actions instead of waiting.
+Vault Keeper operates autonomously by default. Select gaps, research, draft, link, and
+update notes without waiting for approval. Use preview-only behavior only when the
+operator explicitly requests it. Defer only ambiguous or unsafe actions.
 
 ## Table of Contents
 
@@ -306,13 +306,12 @@ When sources disagree:
 When the user says "expand my vault" or similar, run this full workflow:
 
 ### Step 1 — Gap Analysis
-Run the full gap analysis procedure above. Present the gap report.
+Run the full gap analysis procedure above. Record the gap report.
 
 ### Step 2 — Gap Selection
-In a Gated session, present the top 5-10 gaps with recommended actions and let the
-operator select which to fill. Under standing autonomy — including every unattended
-run — select the gaps yourself. Apply the Curator rotation rule in SKILL.md before
-you use the normal priority order. The session note cap still applies.
+Select the gaps yourself from the top 5-10 recommendations. Apply the Curator rotation
+rule in SKILL.md before the normal priority order. The session note cap still applies.
+In explicit preview-only mode, present the gaps without selecting or writing.
 
 After three consecutive runs in one domain, select a different domain. Prefer an
 under-covered domain. Select a `new-territory` gap if no declared domain qualifies.
@@ -329,12 +328,10 @@ For each selected gap:
 3. Collect all drafted notes
 
 ### Step 4 — Review Batch
-In a Gated session, present all drafted notes for review — placement, links, and
-content — and let the operator approve, edit, reject, or defer each one. Under
-standing autonomy, run the review yourself against the drafting standards above
-(frontmatter parses and matches schema, links resolve, every claim sourced, correct
-folder); integrate what passes, and move anything uncertain to the review folder
-(VAULT.md `review_subfolder`) instead of holding the session open.
+Review all drafted notes for placement, links, content, valid frontmatter, sourced
+claims, and correct folders. Integrate what passes. Move uncertain drafts to the
+VAULT.md `review_subfolder` instead of holding the session open. In explicit
+preview-only mode, present the drafts without writing them.
 
 ### Step 5 — Integration
 For each note that passed review:
@@ -349,11 +346,9 @@ Standard session close with full change log.
 ### Guardrails for Autonomous Operation
 
 - Never create more than VAULT.md `max_new_notes_per_session` (default 10) notes in
-  one session. In a Gated session, re-confirm to exceed the cap; in an unattended
-  run, stop at the cap and queue the remainder as next-run targets
-- Never modify an existing note without a reviewable diff: show it in a Gated
-  session; in an unattended run, rely on git (or the pre-write snapshot) and list
-  the file in the change summary
+  one session unless the operator explicitly requests a broader batch. Queue the rest.
+- Keep every existing-note change reviewable through git or the pre-write snapshot,
+  and list the file in the change summary.
 - If a gap requires personal/proprietary knowledge (detected by: the topic
   is about the user's own projects, decisions, or experiences), flag it as
   "requires human input" rather than attempting to fill it

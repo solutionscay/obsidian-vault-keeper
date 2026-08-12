@@ -32,15 +32,15 @@ Before ANY operation, read `VAULT.md` at the vault root. This file defines:
 - Link conventions (wikilinks vs markdown links, alias rules)
 - Archive policy (where retired notes go)
 
-If `VAULT.md` does not exist, generate one by scanning the vault's current structure:
-in an interactive session, present the draft for approval before writing; in an
-unattended run, write it directly with conservative detected defaults, mark it with the
-`> [!ai-generated]` callout, flag it for operator review, and continue the session.
+If `VAULT.md` does not exist, generate one by scanning the vault's current structure.
+Write it with conservative detected defaults, mark it with the `> [!ai-generated]`
+callout, flag it for operator review, and continue. In explicit preview-only mode,
+present the draft without writing it.
 Read `references/vault-config-spec.md` for the full config schema and a starter
 template.
 
 **VAULT.md is authoritative for configuration.** Where a value in VAULT.md — schema,
-formatting rules, naming, tag taxonomy, thresholds (for example `approval_required_above`),
+formatting rules, naming, tag taxonomy, thresholds (for example `bulk_report_above`),
 `git_aware`, template locations, archive paths — differs from a default, table, or
 template in this skill or its reference files, the VAULT.md value wins. The skill's own
 defaults and templates apply only to keys and behaviors that VAULT.md does not define.
@@ -49,9 +49,9 @@ This precedence covers configuration only; it does not relax the Safety Rules be
 ## Safety Rules (non-negotiable)
 
 1. **Never delete notes.** Move candidates to the archive folder defined in VAULT.md.
-2. **Preview before bulk changes.** For any operation touching more files than
-   VAULT.md `approval_required_above` (default 3), show the planned changes as a
-   table (file, action, reason) and wait for approval.
+2. **Make bulk changes reviewable.** For any operation touching more files than
+   VAULT.md `bulk_report_above` (default 3), record the changes as a table with file,
+   action, and reason. Do not pause unless the operator explicitly requested a preview.
 3. **Preserve existing wikilinks.** When renaming, update all inbound links.
 4. **Preserve frontmatter.** Never strip valid YAML properties. Add missing ones;
    fix malformed ones.
@@ -79,44 +79,29 @@ This precedence covers configuration only; it does not relax the Safety Rules be
 
 ## Autonomy
 
-The skill runs under one of two authorization postures. Read which is in force from
-the operator's most recent instruction; when in doubt, default to Gated.
+Vault Keeper owns maintenance and curation by default. A request to maintain, organize,
+clean, curate, expand, or run the skill authorizes the complete workflow. Proceed through
+repairs, moves, renames, link rewrites, merges, formatting, research, and hub updates
+without asking for per-item approval.
 
-- **Gated (default).** Present findings, then wait at each approval gate in the Safety
-  Rules before writing.
-- **Standing autonomy.** When the operator hands over open-ended control — "whatever
-  you want", "you decide", "go ahead and expand it", "this is your KB", "run
-  autonomously", or similar — proceed end-to-end through the active mode's phases
-  without pausing for per-item approval. Prefer action over asking: pick the sensible
-  default, do the work, and report it. Ask only when a choice is consequential AND
-  hard to reverse.
+Use preview-only mode only when the operator explicitly asks to preview, audit, diagnose,
+or approve changes before execution. A configuration threshold controls reporting detail;
+it does not create an authorization gate. The legacy `approval_required_above` key, when
+present, has the same reporting-only meaning as `bulk_report_above`.
 
-Standing autonomy covers ONLY additive, reversible work: drafting new notes, adding
-links, gap analysis, freshness updates, MOCs. It never extends to deletes, renames that
-touch inbound links, merges, or bulk reformatting — those return to a Gated approval no
-matter how broad the grant, because they are hard to undo.
+Autonomy does not relax the Safety Rules. Never delete notes. Take the required snapshot,
+preserve content and frontmatter, update inbound links in the same operation, respect
+excluded and read-only paths, and verify the result. Use the snapshot or git history as
+the rollback mechanism for moves, renames, merges, and bulk formatting.
 
-Autonomy changes WHO approves, not WHAT is safe. Every Safety Rule still holds: snapshot
-before the first write on a no-git vault, source every claim, mark agent content with the
-callout, respect exclusion zones. Under autonomy, replace the per-item preview gate with
-one batched change summary at session close. Fan work out to subagents when a batch is
-large; keep cross-file edits (hubs, inbound links) central to avoid write races.
+Defer an action only when evidence is insufficient to choose a correct target, two rules
+conflict, a destination collision cannot be resolved without losing content, or a safety
+rule blocks the action. Difficulty, file count, structural impact, and reversibility are
+not reasons to pause. Record the blocker and continue with the next target.
 
-An unattended run has no operator to answer a gate. When the skill is invoked headlessly —
-a scheduled job, a cron prompt, a channel command with nobody waiting to reply — treat the
-invocation itself as standing autonomy over the additive scope above. Do the safe work.
-Record anything that would need a Gated approval (deletes, renames, merges, bulk
-reformatting) under Deferred Items in the session summary instead of waiting for a reply
-that cannot come. Waiting is not the safe choice in an unattended run; it converts the
-whole session into a no-op.
-
-**Gate vocabulary.** Where this skill or its reference files say "propose", "offer",
-"show a preview", "present for approval", or "wait for approval", that marks a Gated
-interaction point — not an unconditional instruction to pause. Under standing autonomy
-(including every unattended run), resolve each one the same way: if the action is in
-the additive scope, do it and record it in the change summary; if it is in the
-restricted scope, skip it and record it under Deferred Items. Never let a gate written
-for an interactive session stall an unattended run.
+Apply the same default in interactive, unattended, and scheduled runs. Fan large batches
+out to subagents when available, but keep cross-file link and hub edits central to avoid
+write races.
 
 ## Reporting Style
 
@@ -256,9 +241,8 @@ and target-existence checks.
 The vault root contains only files in VAULT.md `root_allowed_files`. The defaults are
 `VAULT.md` and `README.md`. Do not create an ordinary note in the vault root.
 
-Present the report as a summary table with counts per category. In a Gated
-interactive session, offer to drill into any category; in a full run, carry the
-findings straight into Phase 2.
+Record the report as a summary table with counts per category, then carry the findings
+straight into Phase 2. Stop after the report only in explicit preview-only mode.
 
 ### Phase 2 — Standardize and Enrich
 
@@ -274,15 +258,13 @@ For each issue class, apply the fix defined in VAULT.md or use these defaults:
 | Missing frontmatter | Add the fields named in VAULT.md `required`, values derived sensibly; set enum fields to a valid VAULT.md value. Do not add keys the vault schema omits. |
 | Empty optional properties | Populate schema-defined optional properties whose value is derivable from the note (for example `topic`, `aliases`, `source`, `updated`). Never invent a value; leave the property empty when the note does not support one. |
 | Untagged / under-tagged notes | Assign tags from the VAULT.md taxonomy that match the note's content; fill an empty or absent `tags` property up to the VAULT.md `tag_floor` (default 1). Use only tags the taxonomy allows; propose a new taxonomy entry rather than inventing an off-taxonomy tag. |
-| Naming violations | Propose rename following convention, update all inbound links |
+| Naming violations | Rename following convention and update all inbound links |
 | Tag typos | Replace with closest valid tag from taxonomy |
 | Malformed YAML | Fix syntax, preserve all existing key-value pairs |
-| Empty notes | Flag for review, do not archive automatically |
+| Empty notes | Record for review; do not archive automatically |
 
-Enrichment stays inside the VAULT.md schema and taxonomy: populate only properties the
-schema defines, and tag only from the taxonomy. It is additive and reversible, so it
-falls under standing autonomy — but it still touches many files, so batch it behind the
-same preview/approval gate as any other bulk change (Safety Rule 2).
+Enrichment stays inside the VAULT.md schema and taxonomy. Populate only properties the
+schema defines, and tag only from the taxonomy. Record bulk changes in the session summary.
 
 Read `references/maintenance-ops.md` for detailed procedures on each operation.
 
@@ -290,8 +272,8 @@ Read `references/maintenance-ops.md` for detailed procedures on each operation.
 
 Identify and merge duplicates:
 
-1. Show the two (or more) candidate notes side by side
-2. Propose a merged version that preserves all unique content
+1. Compare the two (or more) candidate notes side by side
+2. Build a merged version that preserves all unique content
 3. Keep the note with more inbound links as the primary
 4. Redirect the other(s) to an alias in the primary's frontmatter
 5. Move the duplicate(s) to archive with a forwarding note
@@ -306,13 +288,14 @@ valid result, not a reason to force a merge.
 ### Phase 4 — Organize
 
 - Generate or update **Maps of Content (MOCs)** for each major topic area
-- Suggest folder moves for misplaced notes (per VAULT.md structure)
+- Move misplaced notes per VAULT.md structure
 - Run `scripts/root-note-organize.sh <vault>` to report misplaced root notes
-- Propose new links between related but unconnected notes
+- Add links between related but unconnected notes
 - Update the tag index if VAULT.md defines one
 
-Use `scripts/root-note-organize.sh --apply <vault>` only after the operator permits
-structural moves. A standing-autonomy or unattended run does not give this permission.
+Run `scripts/root-note-organize.sh <vault>` to inspect the plan, then run
+`scripts/root-note-organize.sh --apply <vault>` in the same session. Defer only ambiguous,
+unsafe, or colliding destinations.
 
 ### Phase 5 — Format
 
@@ -332,8 +315,8 @@ Apply consistent formatting per VAULT.md conventions (or defaults):
 
 Notes converted from PDF, HTML, or DOCX often carry scrape cruft (cookie banners, nav
 breadcrumbs, video-player labels, split list numbers, drop-cap artifacts, garbled
-tables). That cleanup rewrites body text, so run it as a gated step behind the preview
-and approval gate — see `references/maintenance-ops.md` "Conversion-artifact cleanup".
+tables). Clean it when classification is clear, then verify the diff. See
+`references/maintenance-ops.md` "Conversion-artifact cleanup".
 
 ## Mode 2: Curator (Expansion)
 
@@ -371,15 +354,13 @@ the vault should cover. Then:
    offer to add it to VAULT.md `Expansion Domains.domains`. A VAULT.md edit is a
    normal write, not a restricted structural change.
 
-Present findings as a prioritized gap report: topic, gap type (in-domain / connection /
-implicit / `new-territory`), priority (how central to the vault's interests), and
-suggested action. Under **standing autonomy** (see Autonomy), do not stop at the report —
-select the strongest gaps yourself and continue into Phase 2.
+Record findings as a prioritized gap report: topic, gap type (in-domain / connection /
+implicit / `new-territory`), priority, and action. Select the strongest gaps and continue
+into Phase 2 unless the operator explicitly requested preview-only mode.
 
 ### Phase 2 — Research & Draft
 
-For each gap approved by the operator — or, under standing autonomy, each gap the skill
-selects:
+For each gap the skill selects:
 
 1. **Search the web** for current, authoritative sources on the topic
 2. **Draft a new note** following the vault's templates and conventions:
@@ -414,11 +395,10 @@ If the vault lacks a `VAULT.md`, scan the vault and generate one:
 4. Detect an existing inbox folder and intentional root Markdown files
 5. Write these values to `inbox_folder` and `root_allowed_files`
 6. Draft a VAULT.md following the schema in `references/vault-config-spec.md`
-7. In an interactive session, present it for review and approval before writing.
-   In an unattended run, write it now: keep detected values, choose conservative
-   defaults for the rest (`approval_required_above: 3`, detected exclusions kept),
-   add the `> [!ai-generated]` callout, and list it first in the session summary
-   so the operator reviews it.
+7. Write it with detected values and conservative defaults for the rest. Use
+   `bulk_report_above: 3`, keep detected exclusions, add the `> [!ai-generated]`
+   callout, and list it first in the session summary. In explicit preview-only mode,
+   present the draft without writing it.
 
 This makes the skill immediately usable on any existing vault — the agent
 bootstraps its own configuration from what's already there.
@@ -489,7 +469,7 @@ obsidian-vault-keeper/
 │   └── expansion-ops.md          # Research and expansion procedures
 ├── scripts/
 │   ├── curator-domain-select.sh  # Curator domain rotation (bash)
-│   ├── root-note-organize.sh     # Root note report and approved moves (bash)
+│   ├── root-note-organize.sh     # Root note plan and moves (bash)
 │   └── vault-health-scan.sh      # Automated health scan (bash)
 ├── assets/
 │   └── vault-md-template.md      # Copy-paste VAULT.md starter

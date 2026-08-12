@@ -3,12 +3,10 @@
 Detailed procedures for each Steward operation. The SKILL.md defines the what;
 this file defines the how.
 
-Approval language in this file ("show a preview", "wait for approval", "on approval",
-"present options") marks Gated interaction points. Resolve every one per the SKILL.md
-Autonomy section: under standing autonomy or in an unattended run, do the
-additive-scope action and record it; defer restricted-scope actions (renames touching
-inbound links, merges, bulk reformatting, conversion cleanup) to Deferred Items
-instead of waiting.
+Vault Keeper operates autonomously by default. Execute clear repairs, renames, merges,
+moves, formatting, and conversion cleanup after the required snapshot. Record bulk
+changes in the session summary. Use preview-only behavior only when the operator asks
+for it. Defer only ambiguous or unsafe actions, then continue with the next target.
 
 ## Table of Contents
 
@@ -140,7 +138,7 @@ Renaming is the highest-risk maintenance operation because it can break links.
    - Markdown links: `[text](old-name.md)`
 3. Build the rename plan: original path → new path + list of files with
    inbound links to update
-4. If >3 files affected, show preview table and wait for approval
+4. If more files are affected than `bulk_report_above`, record a change table
 5. Execute: rename file, then update all inbound links in a single pass
 6. If the vault uses aliases, add the old name as an alias in the renamed
    file's frontmatter
@@ -189,9 +187,7 @@ scan flags as sparse or under-tagged, not only on notes with violations.
    leave the property empty and move on — a wrong property is worse than an empty one.
 3. Add only keys the schema defines. Enrichment never introduces new frontmatter keys,
    and never overwrites a non-empty property.
-4. Enrichment is additive and reversible, but it is still a bulk edit: apply it behind
-   the preview/approval gate (or batch it into the session summary under standing
-   autonomy).
+4. Record bulk enrichment in the session summary.
 
 ### YAML Gotchas
 
@@ -263,8 +259,8 @@ VAULT.md structural invariants (for example, every folder keeps its hub).
    - Combines body content with clear section attribution where origins differ
    - Preserves all source URLs from both notes
    - Takes the earlier `created` date
-4. Show the merged draft for approval
-5. On approval:
+4. Verify that the merged draft preserves all unique content and sources
+5. Apply the merge:
    - Write the merged content to the primary note
    - Replace the duplicate with a forwarding stub. Keep the vault's required keys
      (for example `type`, `updated`) and use an allowed status value:
@@ -290,9 +286,8 @@ VAULT.md structural invariants (for example, every folder keeps its hub).
 For each broken link:
 1. Search for notes with similar names (fuzzy match)
 2. Search for notes containing the broken link text in their aliases
-3. If a clear match exists (similarity > 0.85): apply the fix (Gated: propose it)
-4. If ambiguous: present options in a Gated session; in an unattended run, leave
-   the link unchanged and list the candidates under Deferred Items
+3. If a clear match exists (similarity > 0.85), apply the fix
+4. If ambiguous, leave the link unchanged and list the candidates under Deferred Items
 5. If no match: the link may reference a note that should exist — flag for
    Curator mode gap analysis
 
@@ -385,11 +380,11 @@ Apply formatting rules from VAULT.md `formatting_rules` section. Defaults:
 8. **Trailing whitespace**: Strip from all lines
 9. **Final newline**: Ensure file ends with exactly one newline
 
-### Conversion-artifact cleanup (gated)
+### Conversion-artifact cleanup
 
 Notes converted from PDF, HTML, or DOCX often carry scrape cruft. This step rewrites
-body text, so treat it as a bulk change: show a preview and wait for approval. Remove
-or repair:
+body text. Take the required snapshot, remove or repair clear artifacts, and verify the
+diff:
 
 - Navigation and chrome: cookie banners, nav breadcrumbs, "skip to content",
   share/print widgets, video-player labels, footer boilerplate
@@ -430,12 +425,9 @@ first destination that these rules supply:
 Do not use the note title to make a folder. Do not create a folder during the health
 scan. Defer the note if its type and status give different destinations.
 
-A root-note move is a structural change. In a Gated session, show the source,
-destination, and reason. Use `scripts/root-note-organize.sh --apply <vault>` after the
-operator permits the moves.
-
-In an unattended run, report the plan as Deferred Items. Standing autonomy does not
-permit a root-note move unless the operator also permits structural moves.
+Run `scripts/root-note-organize.sh <vault>` to inspect source, destination, and reason.
+Then run `scripts/root-note-organize.sh --apply <vault>` in the same session. Root-note
+moves are part of normal autonomous maintenance.
 
 Before each move, make sure that the destination does not exist. After each move,
 update path-qualified inbound links. Then check all affected links. Never move an
@@ -457,8 +449,8 @@ Also check: does the note's tags suggest it belongs to a different area?
 
 ### Move Procedure
 
-1. Propose the move with reason
-2. On approval: move the file
+1. Select the destination from VAULT.md and record the reason
+2. Move the file
 3. Update all inbound links to use the new path (if vault uses full paths)
 4. If vault uses shortest-path wikilinks, no link updates needed (Obsidian
    resolves these automatically)
