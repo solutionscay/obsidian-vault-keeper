@@ -34,8 +34,7 @@ Before ANY operation, read `VAULT.md` at the vault root. This file defines:
 
 If `VAULT.md` does not exist, generate one by scanning the vault's current structure.
 Write it with conservative detected defaults, mark it with the `> [!ai-generated]`
-callout, flag it for operator review, and continue. In explicit preview-only mode,
-present the draft without writing it.
+callout, list it first in the session summary, and continue.
 Read `references/vault-config-spec.md` for the full config schema and a starter
 template.
 
@@ -51,7 +50,7 @@ This precedence covers configuration only; it does not relax the Safety Rules be
 1. **Never delete notes.** Move candidates to the archive folder defined in VAULT.md.
 2. **Make bulk changes reviewable.** For any operation touching more files than
    VAULT.md `bulk_report_above` (default 3), record the changes as a table with file,
-   action, and reason. Do not pause unless the operator explicitly requested a preview.
+   action, and reason. Recording is not pausing: apply the changes in the same pass.
 3. **Preserve existing wikilinks.** When renaming, update all inbound links.
 4. **Preserve frontmatter.** Never strip valid YAML properties. Add missing ones;
    fix malformed ones.
@@ -84,10 +83,13 @@ clean, curate, expand, or run the skill authorizes the complete workflow. Procee
 repairs, moves, renames, link rewrites, merges, formatting, research, and hub updates
 without asking for per-item approval.
 
-Use preview-only mode only when the operator explicitly asks to preview, audit, diagnose,
-or approve changes before execution. A configuration threshold controls reporting detail;
-it does not create an authorization gate. The legacy `approval_required_above` key, when
-present, has the same reporting-only meaning as `bulk_report_above`.
+There is no preview mode and no approval gate. Review happens after the fact, through
+git or the snapshot — never before the write. A configuration threshold controls
+reporting detail; it does not create an authorization gate. The legacy
+`approval_required_above` key, when present, has the same reporting-only meaning as
+`bulk_report_above`. If the operator explicitly says "report only, change nothing" in
+the current request, honor that instruction for that run; nothing in this skill or its
+config creates such a run on its own.
 
 Autonomy does not relax the Safety Rules. Never delete notes. Take the required snapshot,
 preserve content and frontmatter, update inbound links in the same operation, respect
@@ -242,7 +244,7 @@ The vault root contains only files in VAULT.md `root_allowed_files`. The default
 `VAULT.md` and `README.md`. Do not create an ordinary note in the vault root.
 
 Record the report as a summary table with counts per category, then carry the findings
-straight into Phase 2. Stop after the report only in explicit preview-only mode.
+straight into Phase 2. Do not stop after the report.
 
 ### Phase 2 — Standardize and Enrich
 
@@ -257,11 +259,11 @@ For each issue class, apply the fix defined in VAULT.md or use these defaults:
 |-------|---------------|
 | Missing frontmatter | Add the fields named in VAULT.md `required`, values derived sensibly; set enum fields to a valid VAULT.md value. Do not add keys the vault schema omits. |
 | Empty optional properties | Populate schema-defined optional properties whose value is derivable from the note (for example `topic`, `aliases`, `source`, `updated`). Never invent a value; leave the property empty when the note does not support one. |
-| Untagged / under-tagged notes | Assign tags from the VAULT.md taxonomy that match the note's content; fill an empty or absent `tags` property up to the VAULT.md `tag_floor` (default 1). Use only tags the taxonomy allows; propose a new taxonomy entry rather than inventing an off-taxonomy tag. |
+| Untagged / under-tagged notes | Assign tags from the VAULT.md taxonomy that match the note's content; fill an empty or absent `tags` property up to the VAULT.md `tag_floor` (default 1). Use only tags the taxonomy allows; when no taxonomy tag fits, add the new entry to the VAULT.md taxonomy (a normal write), tag the note with it, and record the taxonomy edit in the session summary. |
 | Naming violations | Rename following convention and update all inbound links |
 | Tag typos | Replace with closest valid tag from taxonomy |
 | Malformed YAML | Fix syntax, preserve all existing key-value pairs |
-| Empty notes | Record for review; do not archive automatically |
+| Empty notes | When the title names a fillable topic, queue it as a Curator fill target; otherwise move it to the archive, updating inbound links. Record either way. |
 
 Enrichment stays inside the VAULT.md schema and taxonomy. Populate only properties the
 schema defines, and tag only from the taxonomy. Record bulk changes in the session summary.
@@ -303,7 +305,7 @@ Apply consistent formatting per VAULT.md conventions (or defaults):
 
 - Heading hierarchy (H1 = title only, H2+ for sections)
 - At most one H1 per note: keep the first (or filename-matching) H1, demote the rest,
-  and flag the note for review
+  and record the note in the change table
 - Bold normalization: keep a bold inline label that ends in a colon inside a list item;
   convert a bold-only line that sits directly above a paragraph into a heading at the
   VAULT.md `heading_start` level; leave inline emphasis in prose alone
@@ -346,17 +348,18 @@ the vault should cover. Then:
    (default: 6 months) on fast-moving topics
 5. **Surface implicit gaps**: Topics that adjacent notes imply but no note covers
 6. **Explore adjacent territory**: Do not stop at the declared expansion domains.
-   Propose genuinely new topics that neighbor the vault's interests — a subfield the
+   Surface genuinely new topics that neighbor the vault's interests — a subfield the
    domains only touch, a thinker or tool the notes keep circling, an emerging area a
    deep domain will soon need. Treat the vault as a living KB to grow, not a fixed
    checklist to complete. Mark these as `new-territory` in the gap report so they are
    easy to tell from in-domain fills. When a new-territory cluster proves substantial,
-   offer to add it to VAULT.md `Expansion Domains.domains`. A VAULT.md edit is a
-   normal write, not a restricted structural change.
+   add it to VAULT.md `Expansion Domains.domains` and record the addition in the
+   session summary. A VAULT.md edit is a normal write, not a restricted structural
+   change.
 
 Record findings as a prioritized gap report: topic, gap type (in-domain / connection /
 implicit / `new-territory`), priority, and action. Select the strongest gaps and continue
-into Phase 2 unless the operator explicitly requested preview-only mode.
+into Phase 2.
 
 ### Phase 2 — Research & Draft
 
@@ -369,7 +372,7 @@ For each gap the skill selects:
    - Wikilinks to existing related notes
    - Source URLs for every factual claim
    - `> [!ai-generated]` callout at the top explaining this was agent-drafted
-3. **Propose links** from existing notes to the new note
+3. **Add links** from existing notes to the new note
 4. **Update relevant MOCs** to include the new note
 
 Read `references/expansion-ops.md` for research methodology, source quality
@@ -380,7 +383,7 @@ rules, and note drafting procedures.
 For notes flagged as stale:
 
 1. Search the web for updated information on the note's topic
-2. Propose specific additions or corrections as a diff
+2. Apply the additions and corrections directly; git or the snapshot is the review record
 3. Update the vault's modification-date field (per VAULT.md schema) in place; never introduce a field the schema does not define
 4. Add new sources alongside existing ones (never remove old sources)
 
@@ -397,8 +400,7 @@ If the vault lacks a `VAULT.md`, scan the vault and generate one:
 6. Draft a VAULT.md following the schema in `references/vault-config-spec.md`
 7. Write it with detected values and conservative defaults for the rest. Use
    `bulk_report_above: 3`, keep detected exclusions, add the `> [!ai-generated]`
-   callout, and list it first in the session summary. In explicit preview-only mode,
-   present the draft without writing it.
+   callout, and list it first in the session summary.
 
 This makes the skill immediately usable on any existing vault — the agent
 bootstraps its own configuration from what's already there.

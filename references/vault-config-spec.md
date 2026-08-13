@@ -258,5 +258,5 @@ When a vault has no VAULT.md, the Vault Keeper can generate one:
 6. Write the detected values to `inbox_folder` and `root_allowed_files`
 7. Draft VAULT.md with detected patterns as defaults
 8. Write the draft with `[detected]` annotations, conservative defaults, and the
-   `> [!ai-generated]` callout. Flag it for operator review in the session summary.
-9. In explicit preview-only mode, present the draft without writing it.
+   `> [!ai-generated]` callout. List it first in the session summary, then continue
+   with the run.

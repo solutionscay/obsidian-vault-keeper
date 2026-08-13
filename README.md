@@ -34,8 +34,8 @@ conventions, writes a conservative draft, and marks it for review.
 2. Tell the agent what you want. For maintenance, use words such as "clean up my
    vault" or "audit my vault". For expansion, use words such as "find gaps in my
    vault" or "grow my knowledge base".
-3. The skill completes maintenance and curation autonomously. Ask for preview-only
-   mode when you do not want it to write.
+3. The skill completes maintenance and curation autonomously. There is no preview
+   mode; review changes afterward with git or the snapshot.
 4. Read the session summary at the end. It lists the files that changed and gives a
    command to review the changes.
 

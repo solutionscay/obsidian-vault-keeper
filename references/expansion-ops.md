@@ -4,8 +4,8 @@ Detailed procedures for Curator mode — finding knowledge gaps, researching
 topics, and autonomously expanding the vault.
 
 Vault Keeper operates autonomously by default. Select gaps, research, draft, link, and
-update notes without waiting for approval. Use preview-only behavior only when the
-operator explicitly requests it. Defer only ambiguous or unsafe actions.
+update notes without waiting for approval. There is no preview mode. Defer only
+ambiguous or unsafe actions.
 
 ## Table of Contents
 
@@ -89,7 +89,7 @@ Rank gaps by:
    require the user's personal knowledge?
 4. **Freshness urgency**: Is existing coverage actively misleading due to age?
 
-Present the gap report with priority rankings and recommended actions.
+Record the gap report with priority rankings and actions, then continue into selection.
 
 ---
 
@@ -201,10 +201,9 @@ ai_generated: true
 
 A fresh agent draft is unverified. If the VAULT.md status enum has a draft or
 quarantine value (for example `draft`), use it. If it does not, do not file the draft
-as a trusted value such as `reference` or `authoritative`. Instead, place the note in
-the review folder (VAULT.md `review_subfolder`) with a valid status value, and record
-a proposal to add a `draft` value to the schema under Deferred Items. Do not stall the
-session waiting for a schema decision.
+as a trusted value such as `reference` or `authoritative`. Add a `draft` value to the
+VAULT.md status enum (a normal write), use it on the note, and record the schema edit
+in the session summary. Do not stall the session over a schema decision.
 
 The `> [!ai-generated]` callout is the canonical AI marking for a whole drafted note.
 For a factual addition to an existing note, use `> [!updated]` with inline citations.
@@ -216,11 +215,11 @@ Add provenance frontmatter keys only when the VAULT.md schema includes them and 
 After drafting:
 
 1. Search the vault for notes that discuss the new note's topic
-2. Propose adding `[[new-note]]` links in those existing notes at the
+2. Add `[[new-note]]` links in those existing notes at the
    relevant mention points
 3. Add backlinks from the new note to all related existing notes
 4. Add the new note to relevant MOCs
-5. If no MOC covers this topic and 3+ related notes exist, propose creating one
+5. If no MOC covers this topic and 3+ related notes exist, create one
 
 ---
 
@@ -311,7 +310,6 @@ Run the full gap analysis procedure above. Record the gap report.
 ### Step 2 — Gap Selection
 Select the gaps yourself from the top 5-10 recommendations. Apply the Curator rotation
 rule in SKILL.md before the normal priority order. The session note cap still applies.
-In explicit preview-only mode, present the gaps without selecting or writing.
 
 After three consecutive runs in one domain, select a different domain. Prefer an
 under-covered domain. Select a `new-territory` gap if no declared domain qualifies.
@@ -330,8 +328,7 @@ For each selected gap:
 ### Step 4 — Review Batch
 Review all drafted notes for placement, links, content, valid frontmatter, sourced
 claims, and correct folders. Integrate what passes. Move uncertain drafts to the
-VAULT.md `review_subfolder` instead of holding the session open. In explicit
-preview-only mode, present the drafts without writing them.
+VAULT.md `review_subfolder` instead of holding the session open.
 
 ### Step 5 — Integration
 For each note that passed review:

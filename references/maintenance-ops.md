@@ -5,8 +5,9 @@ this file defines the how.
 
 Vault Keeper operates autonomously by default. Execute clear repairs, renames, merges,
 moves, formatting, and conversion cleanup after the required snapshot. Record bulk
-changes in the session summary. Use preview-only behavior only when the operator asks
-for it. Defer only ambiguous or unsafe actions, then continue with the next target.
+changes in the session summary. There is no preview mode: recording a change never
+means waiting on it. Defer only ambiguous or unsafe actions, then continue with the
+next target.
 
 ## Table of Contents
 
@@ -210,9 +211,11 @@ invisible to tag-driven navigation and MOCs.
 
 1. Build tag frequency map across the vault
 2. For each tag not in VAULT.md taxonomy:
-   - If fuzzy match to a valid tag (edit distance ≤ 2): propose correction
-   - If no match: propose adding to taxonomy or removing
-3. Apply corrections in bulk (with preview if >3 files)
+   - If fuzzy match to a valid tag (edit distance ≤ 2): apply the correction
+   - If no match and the vault genuinely uses the tag: add it to the VAULT.md
+     taxonomy and record the edit in the session summary
+   - If no match and the tag is noise (a typo with no target, a one-off): remove it
+3. Apply corrections in bulk and record them in the change table
 4. Update tag index/MOC if one exists
 
 ### Assignment procedure
@@ -228,8 +231,8 @@ tags than the VAULT.md `tag_floor`, default 1).
    supports — do not pad to the floor with weak matches. A single accurate tag beats
    three vague ones.
 4. If the note's subject has no home in the taxonomy, do not invent an off-taxonomy
-   tag: propose a new taxonomy entry (a VAULT.md edit) and, until it is accepted, leave
-   the note under-tagged and record it under Deferred Items.
+   tag: add the new entry to the VAULT.md taxonomy (a normal write), tag the note with
+   it, and record the taxonomy edit in the session summary.
 5. Never remove or replace an existing valid tag during assignment — assignment only
    adds. Cleanup handles corrections.
 
@@ -249,10 +252,10 @@ Obsidian supports nested tags like `#tech/ai/agents`. When cleaning:
 Before you merge: skip folder-note vs `00-Index` (or other hub) pairs — they are not
 duplicates. Never select a hub note to be archived, and do not rely on raw inbound-link
 count to pick the primary for hub notes (hubs show zero inbound links). Confirm more than
-200 words of body overlap before you propose any merge, and check the merge against
+200 words of body overlap before you merge, and check the merge against
 VAULT.md structural invariants (for example, every folder keeps its hub).
 
-1. Present both notes side by side with a diff view
+1. Compare both notes side by side
 2. Identify the "primary" note (more inbound links, richer content, better name)
 3. Draft a merged version that:
    - Keeps the primary's frontmatter as base, merges unique tags/aliases
@@ -296,8 +299,8 @@ For each broken link:
 For orphan notes that aren't daily notes or templates:
 1. Read the orphan's content and tags
 2. Find related notes via tag overlap and content similarity
-3. Propose adding wikilinks from related notes to the orphan
-4. Propose adding the orphan to relevant MOCs
+3. Add wikilinks from related notes to the orphan at the relevant mention points
+4. Add the orphan to relevant MOCs
 
 ---
 
@@ -366,7 +369,7 @@ Apply formatting rules from VAULT.md `formatting_rules` section. Defaults:
 
 1. **Heading hierarchy**: Ensure no skipped levels (H1 → H3 without H2)
 2. **Single H1**: Keep one H1 per note (the first, or the one that matches the
-   filename). Demote extra H1s to H2 and flag the note for review.
+   filename). Demote extra H1s to H2 and record the note in the change table.
 3. **Bold normalization**: Keep a bold inline label ending in a colon inside a list
    item (for example `- **Note:** ...`). Convert a bold-only line that sits directly
    above a paragraph into a heading at the `heading_start` level. Leave inline
@@ -395,7 +398,8 @@ diff:
   delete them, or rebuild the table if it holds real data
 - Dead link fragments: `[back to text](#anchorNNNN)` return links and similar
 
-Do not delete content you cannot classify — flag it for review instead.
+Do not delete content you cannot classify — leave it in place and record it under
+Deferred Items.
 
 ### What NOT to Touch
 
