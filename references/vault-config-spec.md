@@ -154,6 +154,17 @@ read_only_paths:
 
 accepted_orphan_zones:
   - daily/                   # Scan these notes, but omit them from orphan reports
+
+generated_files:             # Auto-generated indexes/MOCs. Links FROM these files
+  - 90-system/indexes/       # do not count as inbound links (a generated index that
+                             # links to everything would otherwise mask every real
+                             # orphan), and these files are never orphans themselves.
+
+link_allowlist:              # Wikilink targets that intentionally point at nothing
+  - some-planned-note        # (planned notes, external anchors). Not reported broken.
+
+duplicate_allowlist:         # Extra basenames allowed to repeat across folders.
+  - meeting-notes            # Hub names (00-Index, index, readme) are always allowed.
 ```
 
 Use `excluded_paths` as the canonical key. If it is absent, the skill accepts the
@@ -235,7 +246,34 @@ ai_content_marking: callout   # callout | frontmatter | none
 session_log_folder: 90-system/session-log/  # must not sit inside excluded_paths or
                                             # read_only_paths; if it does, the skill
                                             # falls back to external_archive
+reports_folder: _reports/    # where the health scan writes its report envelope
+                             # (health-latest.md/.json + incident archive). Always
+                             # excluded from scans — reports must not scan reports.
+stale_after_days: 0          # flag notes with `status: active` whose file has not
+                             # been modified in this many days; 0 disables the check
 ```
+
+### The health-scan report envelope
+
+`scripts/vault-health-scan.sh --report <vault>` writes machine- and human-readable
+reports to stable paths inside `reports_folder`:
+
+- `health-latest.md` — human report, first line `Status: **OK|WARN|FAIL**`
+- `health-latest.json` — the same findings as structured data (counts, findings
+  list with severity/category/file/detail, and a findings fingerprint)
+- `archive/health-<timestamp>.md` — written **only** when status is WARN/FAIL or
+  the findings changed since the previous run. Clean, unchanged runs leave no
+  residue, so the archive is a history of incidents, not of executions.
+
+Consumers (sessions, dashboards, other scripts) should always read the
+`-latest` paths and never chase timestamped filenames.
+
+Severity model: **errors** (broken links, required-frontmatter violations,
+secret-shaped strings) block confidence in the vault; **warnings** (orphans,
+duplicate basenames, stale active notes, misplaced root notes) accumulate as a
+visible backlog. `--strict` makes the scan exit 2 when any error exists — useful
+for automation; the default exit stays 0 so autonomous sessions are never
+blocked by a report.
 
 ## Starter Template
 

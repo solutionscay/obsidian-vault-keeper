@@ -168,4 +168,101 @@ grep -A3 '^## Expansion Domains$' "$REPO_DIR/assets/vault-md-template.md" |
 grep -A5 '^## Expansion Domains$' "$REPO_DIR/assets/vault-md-template.md" |
     grep -q '^domains:$' || fail 'The starter template has no canonical domains key.'
 
+# --- Health scan v2: deterministic findings, --strict, --json, --report -------
+
+HEALTH_VAULT="$TEST_DIR/health-vault"
+mkdir -p "$HEALTH_VAULT/.obsidian" "$HEALTH_VAULT/notes" \
+    "$HEALTH_VAULT/generated" "$HEALTH_VAULT/daily"
+printf '%s\n' \
+    '## Frontmatter Schema' \
+    '' \
+    '```yaml' \
+    'required:' \
+    '  - title: string' \
+    '```' \
+    '' \
+    '## Exclusions' \
+    '' \
+    '```yaml' \
+    'generated_files:' \
+    '  - generated/' \
+    'link_allowlist:' \
+    '  - external-thing' \
+    'accepted_orphan_zones:' \
+    '  - daily/' \
+    '```' > "$HEALTH_VAULT/VAULT.md"
+printf '%s\n' '---' 'title: Alpha' '---' \
+    '[[beta]] [[missing-note]] [[external-thing]] [[creds]]' > "$HEALTH_VAULT/notes/alpha.md"
+printf '%s\n' '---' 'title: Beta' '---' '[[alpha]] [[nofm]]' > "$HEALTH_VAULT/notes/beta.md"
+printf '%s\n' '---' 'title: Creds' '---' \
+    'key AKIAABCDEFGHIJKLMNOP end' \
+    'documented sample AKIAIOSFODNN7EXAMPLE stays exempt' > "$HEALTH_VAULT/notes/creds.md"
+printf 'no frontmatter here at all\n' > "$HEALTH_VAULT/notes/nofm.md"
+printf '%s\n' '---' 'title: Lost' '---' 'lost content' > "$HEALTH_VAULT/notes/lost.md"
+printf '%s\n' '---' 'title: Dup' '---' 'dup one' > "$HEALTH_VAULT/notes/dup.md"
+printf '%s\n' '---' 'title: Dup Daily' '---' 'dup two' > "$HEALTH_VAULT/daily/dup.md"
+printf '[[lost]] [[alpha]] [[beta]] [[dup]]\n' > "$HEALTH_VAULT/generated/index.md"
+
+# Default mode keeps exit 0 even with findings (command substitution under
+# set -e proves it) and reports every deterministic category.
+HEALTH_OUTPUT=$("$SCAN" "$HEALTH_VAULT")
+assert_contains "$HEALTH_OUTPUT" 'Total notes: 9'
+assert_contains "$HEALTH_OUTPUT" 'Broken links: 1 (error)'
+assert_contains "$HEALTH_OUTPUT" 'Frontmatter violations: 1 (error)'
+assert_contains "$HEALTH_OUTPUT" 'Secret-shaped strings: 1 (error)'
+assert_contains "$HEALTH_OUTPUT" 'Orphans: 2 (warning)'
+assert_contains "$HEALTH_OUTPUT" 'Duplicate basenames: 1 (warning)'
+assert_contains "$HEALTH_OUTPUT" 'Status: FAIL'
+assert_contains "$HEALTH_OUTPUT" 'target does not resolve: [[missing-note]]'
+assert_contains "$HEALTH_OUTPUT" '[warning] [orphan] notes/lost.md'
+assert_contains "$HEALTH_OUTPUT" '[error] [secret] notes/creds.md'
+
+grep -Fq -- '[[external-thing]]' <<<"$HEALTH_OUTPUT" &&
+    fail 'An allowlisted link target was reported as broken.'
+
+set +e
+"$SCAN" --strict "$HEALTH_VAULT" >/dev/null 2>&1
+STRICT_RC=$?
+set -e
+[ "$STRICT_RC" -eq 2 ] || fail "--strict did not exit 2 on error findings (got $STRICT_RC)"
+
+JSON_OUTPUT=$("$SCAN" --json "$HEALTH_VAULT")
+assert_contains "$JSON_OUTPUT" '"status": "FAIL"'
+assert_contains "$JSON_OUTPUT" '"broken_links": 1'
+assert_contains "$JSON_OUTPUT" '"orphans": 2'
+assert_contains "$JSON_OUTPUT" '"category": "orphan"'
+assert_contains "$JSON_OUTPUT" '"category": "secret"'
+
+"$SCAN" --report "$HEALTH_VAULT" >/dev/null
+[ -f "$HEALTH_VAULT/_reports/health-latest.md" ] ||
+    fail 'The report envelope did not write health-latest.md.'
+[ -f "$HEALTH_VAULT/_reports/health-latest.json" ] ||
+    fail 'The report envelope did not write health-latest.json.'
+head -n 1 "$HEALTH_VAULT/_reports/health-latest.md" | grep -q 'Status: \*\*FAIL\*\*' ||
+    fail 'The report envelope does not lead with the status line.'
+ls "$HEALTH_VAULT/_reports/archive/" | grep -q '^health-' ||
+    fail 'A FAIL run did not write an archive copy.'
+
+# The reports folder is a generated surface: scanning must exclude it.
+HEALTH_OUTPUT_2=$("$SCAN" "$HEALTH_VAULT")
+assert_contains "$HEALTH_OUTPUT_2" 'Total notes: 9'
+
+# A clean vault: status OK, and repeated clean --report runs leave no archive.
+CLEAN_HEALTH_VAULT="$TEST_DIR/clean-health-vault"
+mkdir -p "$CLEAN_HEALTH_VAULT/.obsidian" "$CLEAN_HEALTH_VAULT/notes"
+printf '%s\n' '## Purpose' '' 'A minimal clean vault.' > "$CLEAN_HEALTH_VAULT/VAULT.md"
+printf '[[b]]\n' > "$CLEAN_HEALTH_VAULT/notes/a.md"
+printf '[[a]]\n' > "$CLEAN_HEALTH_VAULT/notes/b.md"
+"$SCAN" --report "$CLEAN_HEALTH_VAULT" >/dev/null
+"$SCAN" --report "$CLEAN_HEALTH_VAULT" >/dev/null
+head -n 1 "$CLEAN_HEALTH_VAULT/_reports/health-latest.md" | grep -q 'Status: \*\*OK\*\*' ||
+    fail 'A clean vault did not report OK.'
+[ ! -d "$CLEAN_HEALTH_VAULT/_reports/archive" ] ||
+    fail 'Clean runs left archive residue.'
+
+grep -q 'generated_files:' "$REPO_DIR/assets/vault-md-template.md" ||
+    fail 'The starter template has no generated_files key.'
+grep -q 'reports_folder:' "$REPO_DIR/assets/vault-md-template.md" ||
+    fail 'The starter template has no reports_folder key.'
+
 echo 'All tests passed.'

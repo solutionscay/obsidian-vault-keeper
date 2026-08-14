@@ -232,13 +232,18 @@ Produce a diagnostic report covering:
 - **Misplaced notes**: files in folders that don't match their type/status
 - **Misplaced root notes**: root Markdown files not in VAULT.md `root_allowed_files`
 
-Run `scripts/vault-health-scan.sh <vault>` first for baseline metrics (total notes,
-per-folder counts, empty and stub notes, notes missing a frontmatter fence, unique
-link-target and tag counts, VAULT.md and git presence). These are baseline signals,
-not the full diagnostics: the script does not detect orphans, broken links, duplicates,
-naming violations, tag anomalies, or misplaced notes. Compute those categories per
-`references/maintenance-ops.md`, which builds the vault index, an inbound-link map,
-and target-existence checks.
+Run `scripts/vault-health-scan.sh --report <vault>` first. The script detects the
+mechanically decidable categories deterministically — broken wikilinks (honoring
+`link_allowlist`), orphans (excluding links that originate in `generated_files`,
+self-links, and `accepted_orphan_zones`), required-frontmatter violations, duplicate
+basenames, stale active notes, misplaced root notes, and secret-shaped strings —
+plus the baseline metrics, and writes the report envelope (`health-latest.md` /
+`health-latest.json`) into the VAULT.md `reports_folder`. Two runs on an unchanged
+vault produce identical findings, so never re-derive with judgment what the script
+already found: read its findings and fix them. The judgment categories remain yours
+to compute per `references/maintenance-ops.md`: duplicate candidates by content
+similarity, naming violations, tag anomalies, under-tagged notes, sparse
+frontmatter, and misplaced notes (type/status vs folder).
 
 The vault root contains only files in VAULT.md `root_allowed_files`. The defaults are
 `VAULT.md` and `README.md`. Do not create an ordinary note in the vault root.

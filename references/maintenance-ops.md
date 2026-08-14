@@ -25,6 +25,24 @@ next target.
 
 ## Health Scan Procedure
 
+### Step 0 — Run the deterministic scanner
+
+Run `scripts/vault-health-scan.sh --report <vault>` before anything else. The script
+mechanically detects: broken wikilinks, orphans, required-frontmatter violations,
+duplicate basenames, stale active notes, misplaced root notes, and secret-shaped
+strings, and writes the report envelope to the VAULT.md `reports_folder`. The rule:
+**scripts produce guarantees, prompts produce judgment.** Do not re-derive a category
+the script already computed — read `health-latest.json` and carry its findings into
+the report. The steps below exist for the judgment categories the script cannot
+decide (content-similarity duplicates, naming, tags, sparse frontmatter, misplaced
+notes) and for building the working index used by the fix phases.
+
+Orphan-detection note: the script counts inbound links only from non-generated
+notes and ignores self-links. Any vault with an auto-generated index or MOC that
+links to everything must list it under `generated_files` in VAULT.md — otherwise a
+naive inbound-link count returns zero orphans forever, because the generated file's
+links mask every real orphan.
+
 ### Step 1 — Build the vault index
 
 Walk the vault directory tree. Skip paths in VAULT.md `excluded_paths` and
