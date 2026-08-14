@@ -176,10 +176,12 @@ not why one hygiene task was.
 This skill often runs on a schedule. Each run must extend the last one, not repeat it.
 
 At session start, read the most recent session summary in the VAULT.md
-`session_log_folder` (or wherever the operator keeps run state). Honor its Deferred
-Items and next-run targets before choosing new work. Do not re-research a gap that a
-prior session filled or marked unfillable; search for an existing note before drafting
-one.
+`session_log_folder` (or wherever the operator keeps run state), and run
+`scripts/open-items-scan.sh <vault>` to load the open-items tracker (see Open Items
+Tracker). Honor open tracker rows, the summary's Deferred Items, and next-run targets
+before choosing new work; on a tight schedule, a marked quick win from the tracker is
+always a valid completed target. Do not re-research a gap that a prior session filled
+or marked unfillable; search for an existing note before drafting one.
 
 At session close, write the summary to the log folder with explicit next-run targets:
 the top remaining gaps and any deferred repairs. On a tight schedule, one COMPLETED
@@ -205,6 +207,46 @@ does not renew a domain. Only a clear operator instruction renews a domain.
 Order the eligible domains before selection. Put under-covered domains first. Put a
 `new-territory` candidate last. Use `scripts/curator-domain-select.sh` to apply the
 three-run limit.
+
+## Open Items Tracker
+
+Session summaries alone cannot carry continuity: anything deferred two sessions ago
+silently falls out of view, because nothing reads the older summaries. The biggest
+real-world failure of agent-maintained vaults is not bad edits — it is dropped
+threads. The open-items tracker closes that gap with one canonical file of open work
+(VAULT.md `open_items_tracker`, default `90-system/open-items.md`), created on first
+session close if missing. The tracker must not be in `excluded_paths` or
+`read_only_paths`.
+
+Rules, in force during every session:
+
+- **Tracking is opt-out, not opt-in.** Every substantive thread this session started,
+  discussed, or promised and did not fully finish gets a tracker row before session
+  close. Finished work with a pending follow-up (a verification, an operator
+  decision) counts as unfinished.
+- **Rows are self-contained.** A future session must be able to act on a row without
+  this session's context. `Opened YYYY-MM-DD.` and `Owner:` are mandatory fields:
+
+  `| <ID> 🆕 | **<short title>** | <AREA> | Opened YYYY-MM-DD. Owner: **<name>**. <what it is, current state, exact next action> |`
+
+- **IDs are never reused.** Each row takes an ID series letter plus max+1 across all
+  existing IDs in that series — including struck ones. Suggested series (the operator
+  may define their own): `U` urgent, `D` decision pending the operator, `W` this
+  week, `B` build/follow-up owned by the agent.
+- **Strike, don't delete.** A completed item gets `~~ID~~ ✅` plus a one-line
+  resolution note in place. The tracker is also the history; struck rows keep old
+  references valid.
+- **Mark the quick wins.** Add the VAULT.md `quick_win_marker` (default `(quick)`)
+  to any row a session could close in minutes. The scan surfaces these first — they
+  are the default targets for a tight scheduled run.
+
+`scripts/open-items-scan.sh --report <vault>` parses the tracker deterministically:
+open items ranked by urgency series and age, the quick-wins list, stale urgent items,
+the next free ID per series, and integrity findings (duplicate IDs are an error —
+a tracker that lies is worse than no tracker). It writes `open-items-latest.md` /
+`.json` to the reports folder beside the health-scan envelope. Session summaries
+reference tracker IDs instead of restating items; continuity stops depending on
+reading the right summary file.
 
 ## Mode 1: Steward (Maintenance)
 
@@ -417,6 +459,13 @@ resolves, every new note's frontmatter parses and matches the VAULT.md schema, e
 new factual claim carries a source, every new note is linked from its hub, and no
 excluded path changed. Fix what fails verification before reporting it.
 
+Then settle the open-items tracker (see Open Items Tracker): sweep the session for
+unfinished or follow-up-pending threads and give each a row (opt-out, never
+optional); strike what this session completed with a one-line resolution; run
+`scripts/open-items-scan.sh --report <vault>` and resolve any integrity error it
+reports before writing the summary. The summary's Deferred Items section lists
+tracker IDs, not restated descriptions.
+
 This template is the session summary FILE — the full mechanical record, written to
 the log folder. It is not the chat report; the chat gets the narrative described in
 Reporting Style, with a one-line pointer to this file.
@@ -432,7 +481,8 @@ Every Vault Keeper session ends with:
 | ... | ... | ... |
 
 ### Deferred Items
-- Items that need human review before proceeding
+- Tracker IDs opened or struck this session, one line each (rows live in the
+  open-items tracker; anything needing human review gets a `D`-series row)
 
 ### Vault Health Delta
 - Before: [counts]

@@ -409,4 +409,187 @@ grep -q 'reports_folder:' "$REPO_DIR/assets/vault-md-template.md" ||
 grep -A8 '^excluded_paths:$' "$REPO_DIR/assets/vault-md-template.md" |
     grep -q '^  - _reports/$' || fail 'The starter template does not exclude _reports/.'
 
+# --- Open-items scan: ranking, quick wins, integrity, envelope -----------------
+
+ITEMS="$REPO_DIR/scripts/open-items-scan.sh"
+[ -x "$ITEMS" ] || fail 'The open-items scanner is not executable.'
+ITEMS_VAULT="$TEST_DIR/items-vault"
+mkdir -p "$ITEMS_VAULT/.obsidian" "$ITEMS_VAULT/90-system"
+printf '%s\n' \
+    '## Agent Behavior' \
+    '' \
+    '```yaml' \
+    'open_items_tracker: 90-system/open-items.md' \
+    'urgent_stale_days: 2' \
+    '```' > "$ITEMS_VAULT/VAULT.md"
+OLD_DATE=$(date -u -d '10 days ago' +%Y-%m-%d 2>/dev/null ||
+    date -u -v-10d +%Y-%m-%d)
+TODAY=$(date -u +%Y-%m-%d)
+{
+    printf '| ID | Item | Area | Notes |\n'
+    printf '| --- | --- | --- | --- |\n'
+    printf '| U1 🆕 | **Repair broken MOC links** | hygiene | Opened %s. Owner: **operator**. Three links broken; next: run health scan. |\n' "$OLD_DATE"
+    printf '| W2 | **Reorganize resources folder** | structure | Opened %s. Owner: **agent**. Plan drafted; next: apply moves. |\n' "$TODAY"
+    printf '| D3 | **Choose archive policy** | policy | Opened %s. Decision pending. |\n' "$TODAY"
+    printf '| B4 (quick) | **Tag the three untagged notes** | hygiene | Opened %s. Owner: **agent**. Next: assign taxonomy tags. |\n' "$TODAY"
+    printf '| ~~B1~~ ✅ | **Draft research note** | research | Opened %s. Owner: **agent**. Resolved: drafted and linked. |\n' "$OLD_DATE"
+    printf '| W2 | **Duplicate row** | structure | Opened %s. Owner: **agent**. |\n' "$TODAY"
+} > "$ITEMS_VAULT/90-system/open-items.md"
+
+ITEMS_OUTPUT=$("$ITEMS" "$ITEMS_VAULT")
+assert_contains "$ITEMS_OUTPUT" 'Open items: 4'
+assert_contains "$ITEMS_OUTPUT" 'Struck items: 1'
+assert_contains "$ITEMS_OUTPUT" 'Quick wins: 1'
+assert_contains "$ITEMS_OUTPUT" 'B4 — Tag the three untagged notes'
+assert_contains "$ITEMS_OUTPUT" 'ID W2 already used'
+assert_contains "$ITEMS_OUTPUT" "opened 10 days ago — 'U' items should close within 2 days"
+assert_contains "$ITEMS_OUTPUT" 'D3 has no '"'"'Owner:'"'"''
+assert_contains "$ITEMS_OUTPUT" 'Status: FAIL'
+assert_contains "$ITEMS_OUTPUT" 'B: B5'
+FIRST_OPEN_LINE=$(grep -A1 '=== Open (by urgency, then age) ===' <<<"$ITEMS_OUTPUT" |
+    tail -n 1)
+grep -Fq 'U1' <<<"$FIRST_OPEN_LINE" ||
+    fail 'The most urgent item is not ranked first.'
+
+set +e
+"$ITEMS" --strict "$ITEMS_VAULT" >/dev/null 2>&1
+ITEMS_STRICT_RC=$?
+set -e
+[ "$ITEMS_STRICT_RC" -eq 2 ] ||
+    fail "--strict did not exit 2 on a duplicate ID (got $ITEMS_STRICT_RC)"
+
+ITEMS_JSON=$("$ITEMS" --json "$ITEMS_VAULT")
+assert_contains "$ITEMS_JSON" '"status": "FAIL"'
+assert_contains "$ITEMS_JSON" '"open": 4'
+assert_contains "$ITEMS_JSON" '"quick_win": 1'
+assert_contains "$ITEMS_JSON" '"B": "B5"'
+
+"$ITEMS" --report "$ITEMS_VAULT" >/dev/null
+[ -f "$ITEMS_VAULT/_reports/open-items-latest.md" ] ||
+    fail 'The open-items envelope did not write open-items-latest.md.'
+[ -f "$ITEMS_VAULT/_reports/open-items-latest.json" ] ||
+    fail 'The open-items envelope did not write open-items-latest.json.'
+head -n 1 "$ITEMS_VAULT/_reports/open-items-latest.md" | grep -q 'Status: \*\*FAIL\*\*' ||
+    fail 'The open-items envelope does not lead with the status line.'
+
+# A vault with no tracker yet is a valid starting state, not a finding.
+NO_TRACKER_VAULT="$TEST_DIR/no-tracker-vault"
+mkdir -p "$NO_TRACKER_VAULT/.obsidian"
+printf '%s\n' '## Purpose' '' 'Fresh vault.' > "$NO_TRACKER_VAULT/VAULT.md"
+NO_TRACKER_OUTPUT=$("$ITEMS" "$NO_TRACKER_VAULT")
+assert_contains "$NO_TRACKER_OUTPUT" 'No tracker file found'
+assert_contains "$NO_TRACKER_OUTPUT" 'Status: OK'
+
+# A tracker inside read_only_paths is a broken configuration, not scannable state.
+RO_TRACKER_VAULT="$TEST_DIR/ro-tracker-vault"
+mkdir -p "$RO_TRACKER_VAULT/.obsidian" "$RO_TRACKER_VAULT/locked"
+printf '%s\n' \
+    '## Exclusions' \
+    '' \
+    '```yaml' \
+    'read_only_paths:' \
+    '  - locked/' \
+    '```' \
+    '' \
+    '## Agent Behavior' \
+    '' \
+    '```yaml' \
+    'open_items_tracker: locked/open-items.md' \
+    '```' > "$RO_TRACKER_VAULT/VAULT.md"
+printf '| U1 | **x** | a | Opened 2026-01-01. Owner: **o**. |\n' > "$RO_TRACKER_VAULT/locked/open-items.md"
+RO_TRACKER_OUTPUT=$("$ITEMS" "$RO_TRACKER_VAULT")
+assert_contains "$RO_TRACKER_OUTPUT" 'open_items_tracker sits inside read_only_paths'
+assert_not_contains "$RO_TRACKER_OUTPUT" 'Open items: 1'
+
+# An excluded tracker must not be read or copied into scanner output.
+EXCLUDED_TRACKER_VAULT="$TEST_DIR/excluded-tracker-vault"
+mkdir -p "$EXCLUDED_TRACKER_VAULT/.obsidian" "$EXCLUDED_TRACKER_VAULT/private"
+printf '%s\n' \
+    '## Exclusions' \
+    '' \
+    '```yaml' \
+    'excluded_paths:' \
+    '  - private/' \
+    '```' \
+    '' \
+    '## Agent Behavior' \
+    '' \
+    '```yaml' \
+    'open_items_tracker: private/open-items.md' \
+    '```' > "$EXCLUDED_TRACKER_VAULT/VAULT.md"
+printf '| U1 | **private item title** | a | Opened %s. Owner: **o**. |\n' "$TODAY" \
+    > "$EXCLUDED_TRACKER_VAULT/private/open-items.md"
+EXCLUDED_TRACKER_OUTPUT=$("$ITEMS" "$EXCLUDED_TRACKER_VAULT")
+assert_contains "$EXCLUDED_TRACKER_OUTPUT" 'open_items_tracker sits inside excluded_paths'
+assert_not_contains "$EXCLUDED_TRACKER_OUTPUT" 'private item title'
+
+# A read-only reports folder falls back to _reports without changing that path.
+RO_REPORT_VAULT="$TEST_DIR/read-only-open-items-report-vault"
+mkdir -p "$RO_REPORT_VAULT/.obsidian" "$RO_REPORT_VAULT/locked"
+printf '%s\n' \
+    '## Exclusions' \
+    '' \
+    '```yaml' \
+    'read_only_paths:' \
+    '  - locked/' \
+    '```' \
+    '' \
+    '## Agent Behavior' \
+    '' \
+    '```yaml' \
+    'reports_folder: locked/reports/' \
+    '```' > "$RO_REPORT_VAULT/VAULT.md"
+RO_REPORT_WARNING=$("$ITEMS" --report "$RO_REPORT_VAULT" 2>&1 >/dev/null)
+assert_contains "$RO_REPORT_WARNING" 'Ignore read-only reports_folder: locked/reports/'
+[ -f "$RO_REPORT_VAULT/_reports/open-items-latest.md" ] ||
+    fail 'A read-only reports folder did not fall back to _reports/.'
+[ ! -e "$RO_REPORT_VAULT/locked/reports" ] ||
+    fail 'The open-items scanner wrote into a read-only path.'
+
+# Configured ID series get a next ID even when no row uses the series yet.
+EMPTY_TRACKER_VAULT="$TEST_DIR/empty-tracker-vault"
+mkdir -p "$EMPTY_TRACKER_VAULT/.obsidian" "$EMPTY_TRACKER_VAULT/90-system"
+printf '%s\n' '## Purpose' '' 'Empty tracker fixture.' > "$EMPTY_TRACKER_VAULT/VAULT.md"
+printf '%s\n' '| ID | Item | Area | Notes |' '| --- | --- | --- | --- |' \
+    > "$EMPTY_TRACKER_VAULT/90-system/open-items.md"
+EMPTY_TRACKER_JSON=$("$ITEMS" --json "$EMPTY_TRACKER_VAULT")
+assert_contains "$EMPTY_TRACKER_JSON" '"U": "U1"'
+assert_contains "$EMPTY_TRACKER_JSON" '"D": "D1"'
+assert_contains "$EMPTY_TRACKER_JSON" '"W": "W1"'
+assert_contains "$EMPTY_TRACKER_JSON" '"B": "B1"'
+
+# ID parsing must reject trailing characters that are part of the ID token.
+MALFORMED_ID_VAULT="$TEST_DIR/malformed-id-vault"
+mkdir -p "$MALFORMED_ID_VAULT/.obsidian" "$MALFORMED_ID_VAULT/90-system"
+printf '%s\n' '## Purpose' '' 'Malformed ID fixture.' > "$MALFORMED_ID_VAULT/VAULT.md"
+printf '| U1junk | **Malformed item** | a | Opened %s. Owner: **o**. |\n' "$TODAY" \
+    > "$MALFORMED_ID_VAULT/90-system/open-items.md"
+MALFORMED_ID_OUTPUT=$("$ITEMS" "$MALFORMED_ID_VAULT")
+assert_contains "$MALFORMED_ID_OUTPUT" 'unparseable ID cell: U1junk'
+assert_contains "$MALFORMED_ID_OUTPUT" 'Open items: 0'
+
+# A change to the open queue does not change an unchanged findings fingerprint.
+FINGERPRINT_VAULT="$TEST_DIR/open-items-fingerprint-vault"
+mkdir -p "$FINGERPRINT_VAULT/.obsidian" "$FINGERPRINT_VAULT/90-system"
+printf '%s\n' '## Purpose' '' 'Fingerprint fixture.' > "$FINGERPRINT_VAULT/VAULT.md"
+printf '| W1 | **Needs owner** | a | Opened %s. |\n' "$TODAY" \
+    > "$FINGERPRINT_VAULT/90-system/open-items.md"
+"$ITEMS" --report "$FINGERPRINT_VAULT" >/dev/null
+FIRST_ITEMS_FINGERPRINT=$(grep -o '"fingerprint": "[^"]*"' \
+    "$FINGERPRINT_VAULT/_reports/open-items-latest.json")
+printf '| B1 | **Unrelated valid item** | a | Opened %s. Owner: **agent**. |\n' "$TODAY" \
+    >> "$FINGERPRINT_VAULT/90-system/open-items.md"
+"$ITEMS" --report "$FINGERPRINT_VAULT" >/dev/null
+SECOND_ITEMS_FINGERPRINT=$(grep -o '"fingerprint": "[^"]*"' \
+    "$FINGERPRINT_VAULT/_reports/open-items-latest.json")
+[ "$FIRST_ITEMS_FINGERPRINT" = "$SECOND_ITEMS_FINGERPRINT" ] ||
+    fail 'An open-queue change altered an unchanged findings fingerprint.'
+[ "$(find "$FINGERPRINT_VAULT/_reports/archive" -type f | wc -l)" -eq 1 ] ||
+    fail 'An open-queue change produced another incident archive.'
+
+grep -q 'open_items_tracker:' "$REPO_DIR/assets/vault-md-template.md" ||
+    fail 'The starter template has no open_items_tracker key.'
+grep -q 'quick_win_marker:' "$REPO_DIR/assets/vault-md-template.md" ||
+    fail 'The starter template has no quick_win_marker key.'
+
 echo 'All tests passed.'
