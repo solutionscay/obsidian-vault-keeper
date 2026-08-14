@@ -1,3 +1,5 @@
+![Obsidian Vault Keeper banner](obsidian-vault-keeper-banner.png)
+
 # Obsidian Vault Keeper
 
 Obsidian Vault Keeper is an agent skill. It maintains, organizes, and expands an
