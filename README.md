@@ -49,6 +49,15 @@ The skill obeys these rules.
 - It marks agent-written content with an `[!ai-generated]` callout.
 - It gives a source for each new claim.
 
+The health scan detects the mechanically decidable problems deterministically —
+broken wikilinks, orphans (immune to generated-index masking), required-frontmatter
+violations, duplicate basenames, stale active notes, and secret-shaped strings —
+and can write a stable report envelope (`_reports/health-latest.md` + `.json`,
+with archive copies only for incidents). Scripts produce guarantees; the model's
+judgment is spent on interpreting and fixing findings, not on re-deriving them.
+`--strict` gives automation a real exit code; the default exit never blocks a
+session on a report.
+
 Interactive, unattended, and scheduled sessions use autonomy by default. The skill
 can move, rename, merge, and format notes after it creates the required recovery point.
 It defers only ambiguous or unsafe work. The Curator changes its primary domain after
@@ -74,7 +83,7 @@ obsidian-vault-keeper/
   scripts/
     curator-domain-select.sh   Curator domain rotation (bash)
     root-note-organize.sh      root note plan and moves (bash)
-    vault-health-scan.sh       baseline health metrics (bash)
+    vault-health-scan.sh       deterministic health diagnostics + report envelope (bash)
   assets/
     vault-md-template.md       a copy-and-edit VAULT.md starter
   tests/

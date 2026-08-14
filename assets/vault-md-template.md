@@ -119,6 +119,7 @@ excluded_paths:
   - .obsidian/
   - .git/
   - .trash/
+  - _reports/
   - 90-system/private/
 
 read_only_paths:
@@ -127,6 +128,20 @@ read_only_paths:
 
 accepted_orphan_zones:
   - daily/
+
+# Auto-generated indexes and MOCs: links FROM these files do not count as
+# inbound links, so a generated index that links to everything cannot mask
+# real orphans. Generated files are never reported as orphans themselves.
+generated_files:
+  - 90-system/indexes/
+
+# Wikilink targets that are intentionally not notes (external anchors,
+# planned notes). The health scan will not report these as broken.
+link_allowlist: []
+
+# Extra basenames allowed to repeat across folders (per-folder hub names
+# like 00-Index, index, and readme are always allowed).
+duplicate_allowlist: []
 ```
 
 ## Expansion Domains
@@ -191,4 +206,6 @@ git_aware: true
 provenance: strict
 ai_content_marking: callout
 session_log_folder: 90-system/session-log/
+reports_folder: _reports/    # health-scan report envelope; always excluded from scans
+stale_after_days: 0          # flag `status: active` notes untouched this many days (0 disables)
 ```
