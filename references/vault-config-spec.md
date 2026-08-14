@@ -252,6 +252,16 @@ reports_folder: _reports/    # where the health scan writes its report envelope
                              # excluded from scans — reports must not scan reports.
 stale_after_days: 0          # flag notes with `status: active` whose file has not
                              # been modified in this many days; 0 disables the check
+open_items_tracker: 90-system/open-items.md  # canonical open-work ledger (see below);
+                             # created on first session close; must not sit inside
+                             # read_only_paths (the skill maintains it every session)
+quick_win_marker: "(quick)"  # rows carrying this marker are surfaced first
+urgent_stale_days: 2         # top-urgency rows older than this are flagged stale
+id_series_priority:          # tracker ID series, most urgent first; unlisted series
+  - U                        # rank after listed ones alphabetically
+  - D
+  - W
+  - B
 ```
 
 ### The health-scan report envelope
@@ -275,6 +285,33 @@ duplicate basenames, stale active notes, misplaced root notes) accumulate as a
 visible backlog. `--strict` makes the scan exit 2 when any error exists — useful
 for automation; the default exit stays 0 so autonomous sessions are never
 blocked by a report.
+
+### The open-items tracker
+
+One markdown file (`open_items_tracker`) holds every open thread as a table row:
+
+```markdown
+| U7 🆕 | **Fix broken links in projects MOC** | hygiene | Opened 2026-08-14. Owner: **operator**. 3 links broken after rename; next: run health scan and repair. |
+| ~~B4~~ ✅ | **Draft the pricing note** | research | Opened 2026-08-10. Owner: **agent**. Resolved 2026-08-14: note drafted and linked. |
+```
+
+Row anatomy, enforced by `scripts/open-items-scan.sh`:
+
+- **ID** — a series letter block plus a number (`U7`, `B12`). IDs are **never
+  reused**, including struck ones; the next ID in a series is max+1 across all
+  rows. Duplicate IDs are an **error** — a tracker that lies is worse than none.
+- **`Opened YYYY-MM-DD.` and `Owner:`** are mandatory; their absence is a warning.
+  Rows must be self-contained: a future session acts on the row alone.
+- **Struck rows** (`~~ID~~ ✅` + one-line resolution) are completed history —
+  strike, never delete.
+- **`(quick)`** (or the configured `quick_win_marker`) marks rows closable in
+  minutes; the scan lists them first as default targets for tight scheduled runs.
+
+`scripts/open-items-scan.sh --report <vault>` emits the ranked open list
+(urgency series, then age), quick wins, stale urgent items
+(older than `urgent_stale_days`), the next free ID per series, and integrity
+findings, through the same report-envelope contract as the health scan
+(`open-items-latest.md` / `.json`, incident-only archive, `--json`, `--strict`).
 
 ## Starter Template
 

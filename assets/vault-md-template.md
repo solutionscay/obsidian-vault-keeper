@@ -208,4 +208,12 @@ ai_content_marking: callout
 session_log_folder: 90-system/session-log/
 reports_folder: _reports/    # health-scan report envelope; always excluded from scans
 stale_after_days: 0          # flag `status: active` notes untouched this many days (0 disables)
+open_items_tracker: 90-system/open-items.md  # canonical open-work ledger; created on first session close
+quick_win_marker: "(quick)"  # rows carrying this marker surface first as quick wins
+urgent_stale_days: 2         # top-urgency items older than this are flagged stale
+id_series_priority:          # ranking order for tracker ID series, most urgent first
+  - U                        # urgent
+  - D                        # decision pending the operator
+  - W                        # this week
+  - B                        # build / follow-up owned by the agent
 ```

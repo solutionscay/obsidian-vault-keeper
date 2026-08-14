@@ -60,6 +60,14 @@ judgment is spent on interpreting and fixing findings, not on re-deriving them.
 `--strict` gives automation a real exit code; the default exit never blocks a
 session on a report.
 
+Every session ends by settling the open-items tracker: each unfinished or
+follow-up-pending thread gets a self-contained row with a never-reused ID, an
+open date, and an owner; completed rows are struck, never deleted. The
+open-items scan ranks what's open by urgency and age, surfaces rows marked
+`(quick)` as quick wins for tight scheduled runs, flags stale urgent items, and
+hands the next session its starting queue — so nothing depends on reading the
+right session summary, and no thread silently drops.
+
 Interactive, unattended, and scheduled sessions use autonomy by default. The skill
 can move, rename, merge, and format notes after it creates the required recovery point.
 It defers only ambiguous or unsafe work. The Curator changes its primary domain after
@@ -86,6 +94,7 @@ obsidian-vault-keeper/
     curator-domain-select.sh   Curator domain rotation (bash)
     root-note-organize.sh      root note plan and moves (bash)
     vault-health-scan.sh       deterministic health diagnostics + report envelope (bash)
+    open-items-scan.sh         open-items tracker: ranking, quick wins, integrity (bash)
   assets/
     vault-md-template.md       a copy-and-edit VAULT.md starter
   tests/
