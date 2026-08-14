@@ -7,7 +7,7 @@
 #   --json     machine-readable JSON on stdout instead of the human report
 #   --report   also write the report envelope into <vault>/<reports_folder>/:
 #              health-latest.md + health-latest.json, plus a timestamped archive
-#              copy only when status is WARN/FAIL or findings changed since the
+#              copy only when status is WARN/FAIL and findings changed since the
 #              previous run (clean runs leave no residue)
 #   --strict   exit 2 when any error-severity finding exists (default stays
 #              exit 0 so existing callers and autonomous sessions are unaffected)
@@ -107,6 +107,23 @@ read_config_scalar() {
     ' "$VAULT_CONFIG"
 }
 
+config_scalar_defined() {
+    local section=$1
+    local key=$2
+
+    [ -f "$VAULT_CONFIG" ] || return 1
+
+    awk -v wanted_section="$section" -v wanted="$key" '
+        $0 == "## " wanted_section { in_section=1; in_yaml=0; next }
+        in_section && /^##[[:space:]]/ { exit }
+        !in_section { next }
+        /^```yaml[[:space:]]*$/ { in_yaml=1; next }
+        in_yaml && /^```[[:space:]]*$/ { exit }
+        in_yaml && $0 ~ "^[[:space:]]*" wanted ":[[:space:]]*" { found=1; exit }
+        END { exit(found ? 0 : 1) }
+    ' "$VAULT_CONFIG"
+}
+
 add_scan_exclusion() {
     local path=$1
 
@@ -138,7 +155,37 @@ for path in "${CONFIG_EXCLUDED_PATHS[@]}" "${CONFIG_READ_ONLY_PATHS[@]}"; do
 done
 
 REPORTS_FOLDER=$(read_config_scalar "Agent Behavior" reports_folder)
-[ -n "$REPORTS_FOLDER" ] || REPORTS_FOLDER="_reports/"
+if [ -z "$REPORTS_FOLDER" ]; then
+    if config_scalar_defined "Agent Behavior" reports_folder; then
+        echo "Warning: Ignore unsafe reports_folder: empty value; use _reports/" >&2
+    fi
+    REPORTS_FOLDER="_reports/"
+else
+    reports_candidate=${REPORTS_FOLDER#./}
+    reports_candidate=${reports_candidate%/}
+    reports_unsafe=0
+    if [ -z "$reports_candidate" ] || [ "$reports_candidate" = "." ] ||
+       [[ "$reports_candidate" = /* ]] || [[ "/$reports_candidate/" = *"/../"* ]]; then
+        reports_unsafe=1
+    else
+        for path in "${CONFIG_READ_ONLY_PATHS[@]}"; do
+            path=${path#./}
+            path=${path%/}
+            [ -n "$path" ] || continue
+            if [ "$reports_candidate" = "$path" ] ||
+               [[ "$reports_candidate" == "$path/"* ]]; then
+                reports_unsafe=1
+                break
+            fi
+        done
+    fi
+    if [ "$reports_unsafe" -eq 1 ]; then
+        echo "Warning: Ignore unsafe reports_folder: $REPORTS_FOLDER; use _reports/" >&2
+        REPORTS_FOLDER="_reports/"
+    else
+        REPORTS_FOLDER="$reports_candidate/"
+    fi
+fi
 # The reports folder is a generated surface. Scanning our own reports would turn
 # every finding into a self-referential finding on the next run, so it is always
 # excluded from the scan.
@@ -167,6 +214,7 @@ fi
 
 note_body() {
     awk '
+        { sub(/\r$/, "") }
         NR == 1 && $0 == "---" { in_frontmatter=1; next }
         in_frontmatter && $0 == "---" { in_frontmatter=0; next }
         in_frontmatter { next }
@@ -176,10 +224,104 @@ note_body() {
 
 note_frontmatter() {
     awk '
+        { sub(/\r$/, "") }
         NR == 1 && $0 == "---" { in_frontmatter=1; next }
         in_frontmatter && $0 == "---" { exit }
         in_frontmatter { print }
     ' "$1"
+}
+
+has_frontmatter() {
+    head -n 1 "$1" 2>/dev/null | grep -q $'^---\r\\{0,1\\}$'
+}
+
+note_aliases() {
+    note_frontmatter "$1" | awk '
+        function emit(value, count, values, i) {
+            sub(/[[:space:]]+#.*/, "", value)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+            if (value ~ /^\[.*\]$/) {
+                value=substr(value, 2, length(value)-2)
+                count=split(value, values, ",")
+                for (i=1; i<=count; i++) emit(values[i])
+                return
+            }
+            if ((value ~ /^".*"$/) || (value ~ /^\047.*\047$/)) {
+                value=substr(value, 2, length(value)-2)
+            }
+            if (value != "") print value
+        }
+        /^[[:space:]]*aliases[[:space:]]*:/ {
+            in_aliases=1
+            value=$0
+            sub(/^[[:space:]]*aliases[[:space:]]*:[[:space:]]*/, "", value)
+            if (value != "") {
+                emit(value)
+                in_aliases=0
+            }
+            next
+        }
+        in_aliases && /^[[:space:]]*-[[:space:]]+/ {
+            value=$0
+            sub(/^[[:space:]]*-[[:space:]]+/, "", value)
+            emit(value)
+            next
+        }
+        in_aliases && /^[^[:space:]]/ { in_aliases=0 }
+    '
+}
+
+strip_code() {
+    awk '
+        function fence_ticks(line, probe, spaces, count) {
+            probe=line
+            spaces=0
+            while (spaces < 3 && substr(probe, 1, 1) == " ") {
+                probe=substr(probe, 2)
+                spaces++
+            }
+            count=0
+            while (substr(probe, count+1, 1) == "`") count++
+            return count
+        }
+        function only_space_after_fence(line, count, probe) {
+            probe=line
+            sub(/^   /, "", probe)
+            sub(/^  /, "", probe)
+            sub(/^ /, "", probe)
+            probe=substr(probe, count+1)
+            return probe ~ /^[[:space:]]*$/
+        }
+        function strip_inline(line, out, delimiter, rest, close_at) {
+            out=""
+            while (match(line, /`+/)) {
+                out=out substr(line, 1, RSTART-1)
+                delimiter=substr(line, RSTART, RLENGTH)
+                rest=substr(line, RSTART+RLENGTH)
+                close_at=index(rest, delimiter)
+                if (close_at == 0) return out delimiter rest
+                line=substr(rest, close_at+length(delimiter))
+            }
+            return out line
+        }
+        {
+            sub(/\r$/, "")
+            ticks=fence_ticks($0)
+            if (!in_fence && ticks >= 3) {
+                in_fence=1
+                fence_length=ticks
+                next
+            }
+            if (in_fence) {
+                if (ticks >= fence_length && only_space_after_fence($0, ticks)) {
+                    in_fence=0
+                    fence_length=0
+                }
+                next
+            }
+            print strip_inline($0)
+        }
+    '
 }
 
 lower() {
@@ -234,11 +376,9 @@ is_generated() {
     local entry
     for entry in "${GENERATED_FILES[@]}"; do
         entry=${entry#./}
-        if [[ "$entry" == */ ]]; then
-            [[ "$rel" == "$entry"* ]] && return 0
-        else
-            [ "$rel" = "$entry" ] && return 0
-        fi
+        entry=${entry%/}
+        [ "$rel" = "$entry" ] && return 0
+        [[ "$rel" == "$entry/"* ]] && return 0
     done
     return 1
 }
@@ -269,6 +409,7 @@ in_orphan_exempt_zone() {
 declare -A NOTE_BY_REL=()       # lowercased relative path (with .md) -> canonical rel
 declare -A NOTE_BY_BASE=()      # lowercased basename (no .md) -> canonical rel, or "!ambiguous"
 declare -A BASE_PATHS=()        # lowercased basename -> newline-joined rel paths
+declare -A ALIAS_BY_NAME=()     # lowercased frontmatter alias -> canonical rel, or "!ambiguous"
 REL_PATHS=()
 
 for file in "${NOTE_FILES[@]}"; do
@@ -286,6 +427,16 @@ for file in "${NOTE_FILES[@]}"; do
         NOTE_BY_BASE["$base_lower"]="$rel"
         BASE_PATHS["$base_lower"]="$rel"
     fi
+    while IFS= read -r alias; do
+        alias_lower=$(lower "$alias")
+        [ -n "$alias_lower" ] || continue
+        if [ -n "${ALIAS_BY_NAME[$alias_lower]:-}" ] &&
+           [ "${ALIAS_BY_NAME[$alias_lower]}" != "$rel" ]; then
+            ALIAS_BY_NAME["$alias_lower"]="!ambiguous"
+        else
+            ALIAS_BY_NAME["$alias_lower"]="$rel"
+        fi
+    done < <(note_aliases "$file")
 done
 
 # --- Link resolution: broken wikilinks (error) + inbound map for orphans ------
@@ -310,7 +461,6 @@ for idx in "${!NOTE_FILES[@]}"; do
         [ -n "$target" ] || continue        # [[#heading]] self-reference
 
         target_lower=$(lower "$target")
-        [ -n "${LINK_ALLOWLIST[$target_lower]:-}" ] && continue
 
         resolved=""
         case "$target_lower" in
@@ -329,6 +479,13 @@ for idx in "${!NOTE_FILES[@]}"; do
                 # Ambiguous shortest-path link: it resolves in Obsidian, so it is
                 # not broken; skip inbound credit rather than guess a target.
                 continue
+            else
+                candidate=${ALIAS_BY_NAME[$base_key]:-}
+                if [ -n "$candidate" ] && [ "$candidate" != "!ambiguous" ]; then
+                    resolved="$candidate"
+                elif [ "$candidate" = "!ambiguous" ]; then
+                    continue
+                fi
             fi
         fi
 
@@ -339,6 +496,7 @@ for idx in "${!NOTE_FILES[@]}"; do
                 *.md) ;;
                 *.*) continue ;;
             esac
+            [ -n "${LINK_ALLOWLIST[$target_lower]:-}" ] && continue
             add_finding error broken-link "$rel" "target does not resolve: [[$target]]"
             BROKEN_LINK_COUNT=$((BROKEN_LINK_COUNT + 1))
             continue
@@ -347,7 +505,7 @@ for idx in "${!NOTE_FILES[@]}"; do
         if [ "$source_is_generated" -eq 0 ] && [ "$resolved" != "$rel" ]; then
             INBOUND["$resolved"]=$(( ${INBOUND["$resolved"]:-0} + 1 ))
         fi
-    done < <(grep -oh '\[\[[^]]*\]\]' -- "$file" 2>/dev/null || true)
+    done < <(note_body "$file" | strip_code | grep -oh '\[\[[^]]*\]\]' 2>/dev/null || true)
 done
 
 # --- Orphans (warning) --------------------------------------------------------
@@ -372,7 +530,7 @@ for rel in "${REL_PATHS[@]}"; do
     is_generated "$rel" && continue
     # Hubs and MOCs legitimately show zero inbound links (they are entry points).
     fm=$(note_frontmatter "$VAULT_DIR/$rel")
-    if printf '%s\n' "$fm" | grep -qiE '^type[[:space:]]*:[[:space:]]*(moc|hub)[[:space:]]*$'; then
+    if printf '%s\n' "$fm" | grep -qiE "^type[[:space:]]*:[[:space:]]*['\"]?(moc|hub)['\"]?[[:space:]]*$"; then
         continue
     fi
     add_finding warning orphan "$rel" "no inbound links from any non-generated note"
@@ -386,8 +544,8 @@ if [ "${#REQUIRED_FM_KEYS[@]}" -gt 0 ]; then
         file=${NOTE_FILES[$idx]}
         rel=${REL_PATHS[$idx]}
         is_generated "$rel" && continue
-        [ "$rel" = "VAULT.md" ] && continue
-        if ! head -n 1 "$file" 2>/dev/null | grep -q '^---$'; then
+        [ -n "${ROOT_ALLOWED_MAP[$rel]:-}" ] && continue
+        if ! has_frontmatter "$file"; then
             add_finding error frontmatter "$rel" "missing frontmatter block (required: ${REQUIRED_FM_KEYS[*]})"
             FM_VIOLATION_COUNT=$((FM_VIOLATION_COUNT + 1))
             continue
@@ -422,7 +580,7 @@ if [ "$STALE_AFTER_DAYS" -gt 0 ]; then
         rel=${REL_PATHS[$idx]}
         is_generated "$rel" && continue
         fm=$(note_frontmatter "$file")
-        printf '%s\n' "$fm" | grep -qiE '^status[[:space:]]*:[[:space:]]*active[[:space:]]*$' || continue
+        printf '%s\n' "$fm" | grep -qiE "^status[[:space:]]*:[[:space:]]*['\"]?active['\"]?[[:space:]]*$" || continue
         if [ -n "$(find "$file" -mtime +"$STALE_AFTER_DAYS" -print 2>/dev/null)" ]; then
             add_finding warning stale "$rel" "status: active but not modified in over $STALE_AFTER_DAYS days"
             STALE_COUNT=$((STALE_COUNT + 1))
@@ -489,7 +647,7 @@ fi
 NO_FM=0
 HAS_FM=0
 for file in "${NOTE_FILES[@]}"; do
-    if head -n 1 "$file" 2>/dev/null | grep -q '^---$'; then
+    if has_frontmatter "$file"; then
         HAS_FM=$((HAS_FM + 1))
     else
         NO_FM=$((NO_FM + 1))
@@ -510,7 +668,7 @@ done
 
 ALL_LINKS=$(
     for file in "${NOTE_FILES[@]}"; do
-        grep -oh '\[\[[^]]*\]\]' -- "$file" 2>/dev/null || true
+        note_body "$file" | strip_code | grep -oh '\[\[[^]]*\]\]' 2>/dev/null || true
     done | sed 's/\[\[//;s/\]\]//;s/|.*//' | sort -u | sed '/^$/d' | wc -l
 )
 
@@ -651,7 +809,7 @@ write_report_envelope() {
     if [ -f "$reports_dir/health-latest.json" ]; then
         previous_fingerprint=$(
             grep -o '"fingerprint": "[^"]*"' "$reports_dir/health-latest.json" |
-                head -n 1 | sed 's/.*: "//;s/"//'
+                head -n 1 | sed 's/.*: "//;s/"//' || true
         )
     fi
 
@@ -660,8 +818,8 @@ write_report_envelope() {
 
     # Archive only incidents and changes: a clean run (including the first ever)
     # leaves no residue, so the archive reads as a history of events, not runs.
-    if [ "$STATUS" != "OK" ] ||
-       { [ -n "$previous_fingerprint" ] && [ "$FINDINGS_FINGERPRINT" != "$previous_fingerprint" ]; }; then
+    if [ "$STATUS" != "OK" ] &&
+       [ "$FINDINGS_FINGERPRINT" != "$previous_fingerprint" ]; then
         mkdir -p "$reports_dir/archive"
         cp "$reports_dir/health-latest.md" \
             "$reports_dir/archive/health-$(date -u +%Y%m%dT%H%M%SZ).md"

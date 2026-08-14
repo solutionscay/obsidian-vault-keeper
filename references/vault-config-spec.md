@@ -144,6 +144,7 @@ The agent must not read or modify `excluded_paths`. The agent can read
 ```yaml
 excluded_paths:
   - .obsidian/               # Obsidian config
+  - _reports/                # Vault Keeper health reports
   - 90-system/private/       # Personal/sensitive material
   - .git/                    # Version control internals
   - .trash/                  # Obsidian trash
@@ -261,9 +262,9 @@ reports to stable paths inside `reports_folder`:
 - `health-latest.md` — human report, first line `Status: **OK|WARN|FAIL**`
 - `health-latest.json` — the same findings as structured data (counts, findings
   list with severity/category/file/detail, and a findings fingerprint)
-- `archive/health-<timestamp>.md` — written **only** when status is WARN/FAIL or
-  the findings changed since the previous run. Clean, unchanged runs leave no
-  residue, so the archive is a history of incidents, not of executions.
+- `archive/health-<timestamp>.md` — written **only** when status is WARN/FAIL and
+  the findings changed since the previous run. Clean and unchanged runs leave
+  no residue, so the archive is a history of incidents, not of executions.
 
 Consumers (sessions, dashboards, other scripts) should always read the
 `-latest` paths and never chase timestamped filenames.

@@ -21,6 +21,15 @@ assert_contains() {
     grep -Fq -- "$expected" <<<"$text" || fail "Missing output: $expected"
 }
 
+assert_not_contains() {
+    local text=$1
+    local unexpected=$2
+
+    if grep -Fq -- "$unexpected" <<<"$text"; then
+        fail "Unexpected output: $unexpected"
+    fi
+}
+
 write_words() {
     local file=$1
     local count=$2
@@ -103,7 +112,8 @@ assert_contains "$RENEWAL_OUTPUT" 'Decision: operator-renewal'
 ORGANIZE_VAULT="$TEST_DIR/organize-vault"
 mkdir -p "$ORGANIZE_VAULT/.obsidian" "$ORGANIZE_VAULT/00-inbox" \
     "$ORGANIZE_VAULT/10-projects" "$ORGANIZE_VAULT/40-archive" \
-    "$ORGANIZE_VAULT/notes" "$ORGANIZE_VAULT/read-only"
+    "$ORGANIZE_VAULT/notes" "$ORGANIZE_VAULT/read-only" \
+    "$ORGANIZE_VAULT/custom-reports/archive"
 printf '%s\n' \
     '## Exclusions' \
     '' \
@@ -116,6 +126,7 @@ printf '%s\n' \
     '' \
     '```yaml' \
     'inbox_folder: 00-inbox/' \
+    'reports_folder: custom-reports/' \
     'root_allowed_files:' \
     '  - VAULT.md' \
     '  - README.md' \
@@ -127,6 +138,7 @@ printf '%s\n' \
 printf '[[project.md]] and [project](project.md)\n' > "$ORGANIZE_VAULT/README.md"
 printf '[project](../project.md)\n' > "$ORGANIZE_VAULT/notes/links.md"
 printf '[[project.md]]\n' > "$ORGANIZE_VAULT/read-only/links.md"
+printf 'archived detail: [[project.md]]\n' > "$ORGANIZE_VAULT/custom-reports/archive/incident.md"
 printf 'allowed root file\n' > "$ORGANIZE_VAULT/ROOT-NOTES.md"
 printf '%s\n' '---' 'type: project' '---' 'project body' > "$ORGANIZE_VAULT/project.md"
 printf 'loose body\n' > "$ORGANIZE_VAULT/loose.md"
@@ -153,6 +165,8 @@ grep -Fq '[project](../10-projects/project.md)' "$ORGANIZE_VAULT/notes/links.md"
     fail 'The relative Markdown link did not change after the move.'
 grep -Fq '[[project.md]]' "$ORGANIZE_VAULT/read-only/links.md" ||
     fail 'The organizer changed a read-only file.'
+grep -Fq '[[project.md]]' "$ORGANIZE_VAULT/custom-reports/archive/incident.md" ||
+    fail 'The organizer changed an archived report.'
 
 NO_INBOX_VAULT="$TEST_DIR/no-inbox-vault"
 mkdir -p "$NO_INBOX_VAULT/.obsidian"
@@ -185,14 +199,18 @@ printf '%s\n' \
     '' \
     '```yaml' \
     'generated_files:' \
-    '  - generated/' \
+    '  - generated' \
     'link_allowlist:' \
     '  - external-thing' \
     'accepted_orphan_zones:' \
     '  - daily/' \
     '```' > "$HEALTH_VAULT/VAULT.md"
 printf '%s\n' '---' 'title: Alpha' '---' \
-    '[[beta]] [[missing-note]] [[external-thing]] [[creds]]' > "$HEALTH_VAULT/notes/alpha.md"
+    '[[beta]] [[missing-note]] [[external-thing]] [[creds]]' \
+    '`[[inline-code-link]]`' \
+    '```markdown' '[[fenced-code-link]]' '```' \
+    '````markdown' '[[outer-fenced-code-link]]' '```' \
+    '[[nested-fenced-code-link]]' '```' '````' > "$HEALTH_VAULT/notes/alpha.md"
 printf '%s\n' '---' 'title: Beta' '---' '[[alpha]] [[nofm]]' > "$HEALTH_VAULT/notes/beta.md"
 printf '%s\n' '---' 'title: Creds' '---' \
     'key AKIAABCDEFGHIJKLMNOP end' \
@@ -207,6 +225,7 @@ printf '[[lost]] [[alpha]] [[beta]] [[dup]]\n' > "$HEALTH_VAULT/generated/index.
 # set -e proves it) and reports every deterministic category.
 HEALTH_OUTPUT=$("$SCAN" "$HEALTH_VAULT")
 assert_contains "$HEALTH_OUTPUT" 'Total notes: 9'
+assert_contains "$HEALTH_OUTPUT" 'Unique wikilink targets: 8'
 assert_contains "$HEALTH_OUTPUT" 'Broken links: 1 (error)'
 assert_contains "$HEALTH_OUTPUT" 'Frontmatter violations: 1 (error)'
 assert_contains "$HEALTH_OUTPUT" 'Secret-shaped strings: 1 (error)'
@@ -216,6 +235,8 @@ assert_contains "$HEALTH_OUTPUT" 'Status: FAIL'
 assert_contains "$HEALTH_OUTPUT" 'target does not resolve: [[missing-note]]'
 assert_contains "$HEALTH_OUTPUT" '[warning] [orphan] notes/lost.md'
 assert_contains "$HEALTH_OUTPUT" '[error] [secret] notes/creds.md'
+assert_not_contains "$HEALTH_OUTPUT" 'inline-code-link'
+assert_not_contains "$HEALTH_OUTPUT" 'fenced-code-link'
 
 grep -Fq -- '[[external-thing]]' <<<"$HEALTH_OUTPUT" &&
     fail 'An allowlisted link target was reported as broken.'
@@ -243,6 +264,12 @@ head -n 1 "$HEALTH_VAULT/_reports/health-latest.md" | grep -q 'Status: \*\*FAIL\
 ls "$HEALTH_VAULT/_reports/archive/" | grep -q '^health-' ||
     fail 'A FAIL run did not write an archive copy.'
 
+# A damaged latest JSON file must not make --report fail permanently.
+: > "$HEALTH_VAULT/_reports/health-latest.json"
+"$SCAN" --report "$HEALTH_VAULT" >/dev/null
+grep -q '"fingerprint":' "$HEALTH_VAULT/_reports/health-latest.json" ||
+    fail 'The scan did not replace a damaged latest JSON report.'
+
 # The reports folder is a generated surface: scanning must exclude it.
 HEALTH_OUTPUT_2=$("$SCAN" "$HEALTH_VAULT")
 assert_contains "$HEALTH_OUTPUT_2" 'Total notes: 9'
@@ -260,9 +287,126 @@ head -n 1 "$CLEAN_HEALTH_VAULT/_reports/health-latest.md" | grep -q 'Status: \*\
 [ ! -d "$CLEAN_HEALTH_VAULT/_reports/archive" ] ||
     fail 'Clean runs left archive residue.'
 
+# Frontmatter aliases resolve in both supported YAML forms and earn inbound credit.
+ALIAS_VAULT="$TEST_DIR/alias-vault"
+mkdir -p "$ALIAS_VAULT/.obsidian" "$ALIAS_VAULT/notes"
+printf '%s\n' '## Purpose' '' 'Alias resolution fixture.' > "$ALIAS_VAULT/VAULT.md"
+printf '%s\n' '[[ML]] [[Deep Practice]]' > "$ALIAS_VAULT/notes/source.md"
+printf '%s\n' '---' 'aliases: [ML, Machine Learning]' '---' \
+    'machine learning body' > "$ALIAS_VAULT/notes/machine-learning.md"
+printf '%s\n' '---' 'aliases:' '  - "Deep Practice"' '  - DP' '---' \
+    'practice body' > "$ALIAS_VAULT/notes/deep-practice.md"
+ALIAS_OUTPUT=$("$SCAN" "$ALIAS_VAULT")
+assert_contains "$ALIAS_OUTPUT" 'Broken links: 0 (error)'
+assert_not_contains "$ALIAS_OUTPUT" '[warning] [orphan] notes/machine-learning.md'
+assert_not_contains "$ALIAS_OUTPUT" '[warning] [orphan] notes/deep-practice.md'
+
+# An allowlisted target earns inbound credit after the target note exists.
+ALLOWLIST_VAULT="$TEST_DIR/allowlist-vault"
+mkdir -p "$ALLOWLIST_VAULT/.obsidian" "$ALLOWLIST_VAULT/notes"
+printf '%s\n' '## Exclusions' '' '```yaml' 'link_allowlist:' \
+    '  - planned' '```' > "$ALLOWLIST_VAULT/VAULT.md"
+printf '[[planned]]\n' > "$ALLOWLIST_VAULT/notes/source.md"
+printf 'planned body\n' > "$ALLOWLIST_VAULT/notes/planned.md"
+ALLOWLIST_OUTPUT=$("$SCAN" "$ALLOWLIST_VAULT")
+assert_contains "$ALLOWLIST_OUTPUT" 'Broken links: 0 (error)'
+assert_not_contains "$ALLOWLIST_OUTPUT" '[warning] [orphan] notes/planned.md'
+
+# Root files allowed by configuration do not need the note frontmatter schema.
+ROOT_FM_VAULT="$TEST_DIR/root-frontmatter-vault"
+mkdir -p "$ROOT_FM_VAULT/.obsidian"
+printf '%s\n' '## Frontmatter Schema' '' '```yaml' 'required:' \
+    '  - title: string' '```' '' '## Agent Behavior' '' '```yaml' \
+    'root_allowed_files:' '  - VAULT.md' '  - README.md' '```' > "$ROOT_FM_VAULT/VAULT.md"
+printf 'readme body without frontmatter\n' > "$ROOT_FM_VAULT/README.md"
+ROOT_FM_OUTPUT=$("$SCAN" "$ROOT_FM_VAULT")
+assert_contains "$ROOT_FM_OUTPUT" 'Frontmatter violations: 0 (error)'
+
+# CRLF fences and quoted values work in frontmatter checks and exemptions.
+CRLF_VAULT="$TEST_DIR/crlf-vault"
+mkdir -p "$CRLF_VAULT/.obsidian" "$CRLF_VAULT/notes"
+printf '%s\n' '## Frontmatter Schema' '' '```yaml' 'required:' \
+    '  - title: string' '```' '' '## Agent Behavior' '' '```yaml' \
+    'stale_after_days: 1' '```' > "$CRLF_VAULT/VAULT.md"
+printf '%s\r\n' '---' 'title: Windows Note' 'type: "moc"' \
+    'status: "active"' '---' 'body text' > "$CRLF_VAULT/notes/windows-note.md"
+touch -d '3 days ago' "$CRLF_VAULT/notes/windows-note.md"
+CRLF_OUTPUT=$("$SCAN" "$CRLF_VAULT")
+assert_contains "$CRLF_OUTPUT" 'Frontmatter violations: 0 (error)'
+assert_contains "$CRLF_OUTPUT" 'With frontmatter: 1'
+assert_contains "$CRLF_OUTPUT" 'Orphans: 0 (warning)'
+assert_contains "$CRLF_OUTPUT" 'Stale active notes: 1 (warning)'
+
+# Unsafe report paths fall back to _reports and never write outside the vault.
+UNSAFE_REPORT_VAULT="$TEST_DIR/unsafe-report-vault"
+mkdir -p "$UNSAFE_REPORT_VAULT/.obsidian"
+printf '%s\n' '## Agent Behavior' '' '```yaml' \
+    'reports_folder: ../outside-target/' '```' > "$UNSAFE_REPORT_VAULT/VAULT.md"
+"$SCAN" --report "$UNSAFE_REPORT_VAULT" >/dev/null 2>&1
+[ -f "$UNSAFE_REPORT_VAULT/_reports/health-latest.json" ] ||
+    fail 'An unsafe reports_folder did not fall back to _reports/.'
+[ ! -e "$TEST_DIR/outside-target/health-latest.json" ] ||
+    fail 'An unsafe reports_folder wrote outside the vault.'
+
+DOT_REPORT_VAULT="$TEST_DIR/dot-report-vault"
+mkdir -p "$DOT_REPORT_VAULT/.obsidian"
+printf '%s\n' '## Agent Behavior' '' '```yaml' \
+    'reports_folder: .' '```' > "$DOT_REPORT_VAULT/VAULT.md"
+"$SCAN" --report "$DOT_REPORT_VAULT" >/dev/null 2>&1
+[ -f "$DOT_REPORT_VAULT/_reports/health-latest.md" ] ||
+    fail 'A root reports_folder did not fall back to _reports/.'
+[ ! -f "$DOT_REPORT_VAULT/health-latest.md" ] ||
+    fail 'The scan wrote a report into the vault root.'
+
+EMPTY_REPORT_VAULT="$TEST_DIR/empty-report-vault"
+mkdir -p "$EMPTY_REPORT_VAULT/.obsidian"
+printf '%s\n' '## Agent Behavior' '' '```yaml' \
+    'reports_folder:' '```' > "$EMPTY_REPORT_VAULT/VAULT.md"
+EMPTY_REPORT_WARNING=$("$SCAN" --report "$EMPTY_REPORT_VAULT" 2>&1 >/dev/null)
+assert_contains "$EMPTY_REPORT_WARNING" 'Ignore unsafe reports_folder: empty value'
+[ -f "$EMPTY_REPORT_VAULT/_reports/health-latest.md" ] ||
+    fail 'An empty reports_folder did not fall back to _reports/.'
+
+ABSOLUTE_REPORT_VAULT="$TEST_DIR/absolute-report-vault"
+ABSOLUTE_REPORT_TARGET="$TEST_DIR/absolute-report-target"
+mkdir -p "$ABSOLUTE_REPORT_VAULT/.obsidian"
+printf '%s\n' '## Agent Behavior' '' '```yaml' \
+    "reports_folder: $ABSOLUTE_REPORT_TARGET" '```' > "$ABSOLUTE_REPORT_VAULT/VAULT.md"
+"$SCAN" --report "$ABSOLUTE_REPORT_VAULT" >/dev/null 2>&1
+[ -f "$ABSOLUTE_REPORT_VAULT/_reports/health-latest.md" ] ||
+    fail 'An absolute reports_folder did not fall back to _reports/.'
+[ ! -e "$ABSOLUTE_REPORT_TARGET" ] ||
+    fail 'An absolute reports_folder wrote outside the vault.'
+
+READ_ONLY_REPORT_VAULT="$TEST_DIR/read-only-report-vault"
+mkdir -p "$READ_ONLY_REPORT_VAULT/.obsidian" "$READ_ONLY_REPORT_VAULT/locked"
+printf '%s\n' '## Exclusions' '' '```yaml' 'read_only_paths:' \
+    '  - locked/' '```' '' '## Agent Behavior' '' '```yaml' \
+    'reports_folder: locked/reports/' '```' > "$READ_ONLY_REPORT_VAULT/VAULT.md"
+"$SCAN" --report "$READ_ONLY_REPORT_VAULT" >/dev/null 2>&1
+[ -f "$READ_ONLY_REPORT_VAULT/_reports/health-latest.md" ] ||
+    fail 'A read-only reports_folder did not fall back to _reports/.'
+[ ! -e "$READ_ONLY_REPORT_VAULT/locked/reports" ] ||
+    fail 'The scan wrote into a read-only path.'
+
+# Repeated standing warnings produce one incident archive.
+WARN_REPORT_VAULT="$TEST_DIR/warn-report-vault"
+mkdir -p "$WARN_REPORT_VAULT/.obsidian" "$WARN_REPORT_VAULT/notes"
+printf '%s\n' '## Purpose' '' 'Archive fixture.' > "$WARN_REPORT_VAULT/VAULT.md"
+printf 'standing orphan\n' > "$WARN_REPORT_VAULT/notes/orphan.md"
+"$SCAN" --report "$WARN_REPORT_VAULT" >/dev/null
+FIRST_ARCHIVE_COUNT=$(find "$WARN_REPORT_VAULT/_reports/archive" -type f | wc -l)
+sleep 1
+"$SCAN" --report "$WARN_REPORT_VAULT" >/dev/null
+SECOND_ARCHIVE_COUNT=$(find "$WARN_REPORT_VAULT/_reports/archive" -type f | wc -l)
+[ "$FIRST_ARCHIVE_COUNT" -eq 1 ] && [ "$SECOND_ARCHIVE_COUNT" -eq 1 ] ||
+    fail 'An unchanged warning produced another incident archive.'
+
 grep -q 'generated_files:' "$REPO_DIR/assets/vault-md-template.md" ||
     fail 'The starter template has no generated_files key.'
 grep -q 'reports_folder:' "$REPO_DIR/assets/vault-md-template.md" ||
     fail 'The starter template has no reports_folder key.'
+grep -A8 '^excluded_paths:$' "$REPO_DIR/assets/vault-md-template.md" |
+    grep -q '^  - _reports/$' || fail 'The starter template does not exclude _reports/.'
 
 echo 'All tests passed.'

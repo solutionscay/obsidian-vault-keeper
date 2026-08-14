@@ -119,6 +119,7 @@ excluded_paths:
   - .obsidian/
   - .git/
   - .trash/
+  - _reports/
   - 90-system/private/
 
 read_only_paths:

@@ -45,8 +45,8 @@ links mask every real orphan.
 
 ### Step 1 — Build the vault index
 
-Walk the vault directory tree. Skip paths in VAULT.md `excluded_paths` and
-`read_only_paths`.
+Walk the vault directory tree. Skip paths in VAULT.md `excluded_paths`,
+`read_only_paths`, and the resolved `reports_folder`.
 For each `.md` file, extract:
 
 - File path and name

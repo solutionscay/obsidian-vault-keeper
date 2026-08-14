@@ -77,6 +77,20 @@ read_config_scalar() {
     ' "$VAULT_CONFIG"
 }
 
+config_scalar_defined() {
+    local key=$1
+
+    awk -v wanted="$key" '
+        /^##[[:space:]]+Agent Behavior[[:space:]]*$/ { in_section=1; in_yaml=0; next }
+        in_section && /^##[[:space:]]/ { exit }
+        !in_section { next }
+        /^```yaml[[:space:]]*$/ { in_yaml=1; next }
+        in_yaml && /^```[[:space:]]*$/ { exit }
+        in_yaml && $0 ~ "^[[:space:]]*" wanted ":[[:space:]]*" { found=1; exit }
+        END { exit(found ? 0 : 1) }
+    ' "$VAULT_CONFIG"
+}
+
 read_placement_rules() {
     awk '
         /^##[[:space:]]+Agent Behavior[[:space:]]*$/ { in_section=1; in_yaml=0; in_rules=0; next }
@@ -171,7 +185,39 @@ if [ "${#EXCLUDED_PATHS[@]}" -eq 0 ]; then
     mapfile -t EXCLUDED_PATHS < <(read_config_values Exclusions exclusions)
 fi
 mapfile -t READ_ONLY_PATHS < <(read_config_values Exclusions read_only_paths)
-PROTECTED_PATHS+=("${EXCLUDED_PATHS[@]}" "${READ_ONLY_PATHS[@]}")
+REPORTS_FOLDER=$(read_config_scalar reports_folder)
+if [ -z "$REPORTS_FOLDER" ]; then
+    if config_scalar_defined reports_folder; then
+        echo "Warning: Ignore unsafe reports_folder: empty value; use _reports/" >&2
+    fi
+    REPORTS_FOLDER=_reports/
+else
+    reports_candidate=${REPORTS_FOLDER#./}
+    reports_candidate=${reports_candidate%/}
+    reports_unsafe=0
+    if [ -z "$reports_candidate" ] || [ "$reports_candidate" = "." ] ||
+       [[ "$reports_candidate" = /* ]] || [[ "/$reports_candidate/" = *"/../"* ]]; then
+        reports_unsafe=1
+    else
+        for protected in "${READ_ONLY_PATHS[@]}"; do
+            protected=${protected#./}
+            protected=${protected%/}
+            [ -n "$protected" ] || continue
+            if [ "$reports_candidate" = "$protected" ] ||
+               [[ "$reports_candidate" == "$protected/"* ]]; then
+                reports_unsafe=1
+                break
+            fi
+        done
+    fi
+    if [ "$reports_unsafe" -eq 1 ]; then
+        echo "Warning: Ignore unsafe reports_folder: $REPORTS_FOLDER; use _reports/" >&2
+        REPORTS_FOLDER=_reports/
+    else
+        REPORTS_FOLDER="$reports_candidate/"
+    fi
+fi
+PROTECTED_PATHS+=("${EXCLUDED_PATHS[@]}" "${READ_ONLY_PATHS[@]}" "$REPORTS_FOLDER")
 
 FIND_PRUNE=()
 for protected in "${PROTECTED_PATHS[@]}"; do
