@@ -254,7 +254,7 @@ stale_after_days: 0          # flag notes with `status: active` whose file has n
                              # been modified in this many days; 0 disables the check
 open_items_tracker: 90-system/open-items.md  # canonical open-work ledger (see below);
                              # created on first session close; must not sit inside
-                             # read_only_paths (the skill maintains it every session)
+                             # excluded_paths or read_only_paths
 quick_win_marker: "(quick)"  # rows carrying this marker are surfaced first
 urgent_stale_days: 2         # top-urgency rows older than this are flagged stale
 id_series_priority:          # tracker ID series, most urgent first; unlisted series

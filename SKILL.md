@@ -215,7 +215,8 @@ silently falls out of view, because nothing reads the older summaries. The bigge
 real-world failure of agent-maintained vaults is not bad edits — it is dropped
 threads. The open-items tracker closes that gap with one canonical file of open work
 (VAULT.md `open_items_tracker`, default `90-system/open-items.md`), created on first
-session close if missing.
+session close if missing. The tracker must not be in `excluded_paths` or
+`read_only_paths`.
 
 Rules, in force during every session:
 

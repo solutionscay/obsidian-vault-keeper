@@ -145,6 +145,26 @@ if [ "${#SERIES_PRIORITY[@]}" -eq 0 ]; then
     SERIES_PRIORITY=(U D W B)
 fi
 
+mapfile -t EXCLUDED_PATHS < <(read_config_values Exclusions excluded_paths)
+if [ "${#EXCLUDED_PATHS[@]}" -eq 0 ]; then
+    mapfile -t EXCLUDED_PATHS < <(read_config_values Exclusions exclusions)
+fi
+mapfile -t READ_ONLY_PATHS < <(read_config_values Exclusions read_only_paths)
+
+path_is_nested_in() {
+    local candidate=${1%/}
+    shift
+    local path
+
+    for path in "$@"; do
+        path=$(safe_relative_path "$path") || continue
+        if [ "$candidate" = "$path" ] || [[ "$candidate" == "$path/"* ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 series_rank() {
     local series=$1 i
     for i in "${!SERIES_PRIORITY[@]}"; do
@@ -163,6 +183,10 @@ else
     echo "Warning: Ignore unsafe reports_folder: $REPORTS_FOLDER; use _reports/" >&2
     REPORTS_FOLDER="_reports/"
 fi
+if path_is_nested_in "$REPORTS_FOLDER" "${READ_ONLY_PATHS[@]}"; then
+    echo "Warning: Ignore read-only reports_folder: $REPORTS_FOLDER; use _reports/" >&2
+    REPORTS_FOLDER="_reports/"
+fi
 
 TRACKER_CONFIGURED=1
 if ! TRACKER_REL=$(safe_relative_path "$TRACKER_REL_RAW"); then
@@ -170,19 +194,16 @@ if ! TRACKER_REL=$(safe_relative_path "$TRACKER_REL_RAW"); then
     TRACKER_CONFIGURED=0
 fi
 
-# A tracker nested in a read-only path could never be updated by the skill, so
-# treat that configuration as broken rather than silently scanning a file the
-# Steward is forbidden to maintain.
+# An excluded tracker must not be read. A read-only tracker could never be
+# updated by the skill. Treat either configuration as broken.
 if [ "$TRACKER_CONFIGURED" -eq 1 ]; then
-    mapfile -t READ_ONLY_PATHS < <(read_config_values Exclusions read_only_paths)
-    for path in "${READ_ONLY_PATHS[@]}"; do
-        ro=$(safe_relative_path "$path") || continue
-        if [ "$TRACKER_REL" = "$ro" ] || [[ "$TRACKER_REL" == "$ro/"* ]]; then
-            add_finding warning tracker-config "VAULT.md" "open_items_tracker sits inside read_only_paths: $TRACKER_REL"
-            TRACKER_CONFIGURED=0
-            break
-        fi
-    done
+    if path_is_nested_in "$TRACKER_REL" "${EXCLUDED_PATHS[@]}"; then
+        add_finding warning tracker-config "VAULT.md" "open_items_tracker sits inside excluded_paths: $TRACKER_REL"
+        TRACKER_CONFIGURED=0
+    elif path_is_nested_in "$TRACKER_REL" "${READ_ONLY_PATHS[@]}"; then
+        add_finding warning tracker-config "VAULT.md" "open_items_tracker sits inside read_only_paths: $TRACKER_REL"
+        TRACKER_CONFIGURED=0
+    fi
 fi
 
 TRACKER_FILE="$VAULT_DIR/${TRACKER_REL:-}"
@@ -198,6 +219,10 @@ declare -A SEEN_IDS=() SERIES_MAX=()
 STRUCK_COUNT=0
 TRACKER_PRESENT=0
 
+for series in "${SERIES_PRIORITY[@]}"; do
+    SERIES_MAX[$series]=0
+done
+
 if [ "$TRACKER_CONFIGURED" -eq 1 ] && [ -f "$TRACKER_FILE" ]; then
     TRACKER_PRESENT=1
     TODAY_EPOCH=$(date -u +%s)
@@ -212,10 +237,13 @@ if [ "$TRACKER_CONFIGURED" -eq 1 ] && [ -f "$TRACKER_FILE" ]; then
         [ -n "$id_cell" ] || continue
 
         struck=0
-        if [[ "$id_cell" == '~~'* ]]; then
+        id=""
+        if [[ "$id_cell" =~ ^~~([A-Z]+[0-9]+)~~([[:space:]]|$) ]]; then
             struck=1
+            id=${BASH_REMATCH[1]}
+        elif [[ "$id_cell" =~ ^([A-Z]+[0-9]+)([[:space:]]|$) ]]; then
+            id=${BASH_REMATCH[1]}
         fi
-        id=$(printf '%s' "$id_cell" | sed 's/~~//g' | grep -oE '^[A-Z]+[0-9]+' || true)
 
         if [ -z "$id" ]; then
             # Header ("ID"), separator ("---"), and prose rows are structure,
@@ -323,8 +351,7 @@ STATUS=OK
 
 SCAN_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 FINDINGS_FINGERPRINT=$(
-    { printf '%s\n' "${FINDINGS[@]}"; printf '%s\n' "${RANKED_IDS[@]}"; } |
-        sort | cksum | awk '{print $1}'
+    printf '%s\n' "${FINDINGS[@]}" | sort | cksum | awk '{print $1}'
 )
 
 describe_item() {
