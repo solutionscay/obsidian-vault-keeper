@@ -539,28 +539,18 @@ done
 
 # --- Required frontmatter validation (error) ----------------------------------
 FM_VIOLATION_COUNT=0
-if [ "${#REQUIRED_FM_KEYS[@]}" -gt 0 ]; then
-    for idx in "${!NOTE_FILES[@]}"; do
-        file=${NOTE_FILES[$idx]}
-        rel=${REL_PATHS[$idx]}
-        is_generated "$rel" && continue
-        [ -n "${ROOT_ALLOWED_MAP[$rel]:-}" ] && continue
-        if ! has_frontmatter "$file"; then
-            add_finding error frontmatter "$rel" "missing frontmatter block (required: ${REQUIRED_FM_KEYS[*]})"
-            FM_VIOLATION_COUNT=$((FM_VIOLATION_COUNT + 1))
-            continue
-        fi
-        fm=$(note_frontmatter "$file")
-        missing=()
-        for key in "${REQUIRED_FM_KEYS[@]}"; do
-            printf '%s\n' "$fm" | grep -qE "^${key}[[:space:]]*:" || missing+=("$key")
-        done
-        if [ "${#missing[@]}" -gt 0 ]; then
-            add_finding error frontmatter "$rel" "missing required: ${missing[*]}"
-            FM_VIOLATION_COUNT=$((FM_VIOLATION_COUNT + 1))
-        fi
-    done
-fi
+SCHEMA_FILES=()
+for rel in "${REL_PATHS[@]}"; do
+    is_generated "$rel" && continue
+    [ -n "${ROOT_ALLOWED_MAP[$rel]:-}" ] && continue
+    SCHEMA_FILES+=("$rel")
+done
+SCHEMA_OUTPUT=$(python3 "$(dirname "$0")/vault_schema.py" "$VAULT_DIR" "${SCHEMA_FILES[@]}")
+while IFS=$'\t' read -r category rel detail; do
+    [ -n "$category" ] || continue
+    add_finding error "$category" "$rel" "$detail"
+    FM_VIOLATION_COUNT=$((FM_VIOLATION_COUNT + 1))
+done <<< "$SCHEMA_OUTPUT"
 
 # --- Duplicate basenames (warning) --------------------------------------------
 DUPLICATE_COUNT=0

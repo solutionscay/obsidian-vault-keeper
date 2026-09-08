@@ -336,3 +336,24 @@ When a vault has no VAULT.md, the Vault Keeper can generate one:
 8. Write the draft with `[detected]` annotations, conservative defaults, and the
    `> [!ai-generated]` callout. List it first in the session summary, then continue
    with the run.
+
+### Schema validation
+
+The health scan uses Python 3 and PyYAML. Install PyYAML with
+`python3 -m pip install PyYAML` if the environment does not provide it.
+Required declarations support `string`, `path`, `list`, `date`, and `enum [values]`.
+Dates must use a valid `YYYY-MM-DD` calendar date. Optional fields use the same
+checks when present. Unknown properties remain valid and unchanged.
+
+Declare collection-specific type changes inside `Frontmatter Schema`:
+
+```yaml
+collection_overrides:
+  - path: Collection/
+    required:
+      - status: enum [draft, complete]
+    optional:
+      - local_key: string
+```
+
+Overrides replace named declarations. More specific paths take precedence.
