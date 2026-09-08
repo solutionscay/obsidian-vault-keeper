@@ -495,6 +495,9 @@ render_report_md() {
 }
 
 write_report_envelope() {
+    local snapshot
+    snapshot=$(python3 "$(dirname "$0")/prepare_recovery.py" "$VAULT_DIR")
+    [ -z "$snapshot" ] || printf 'Recovery snapshot: %s\n' "$snapshot" >&2
     local reports_rel=${REPORTS_FOLDER%/}
     local reports_dir="$VAULT_DIR/$reports_rel"
     local previous_fingerprint=""

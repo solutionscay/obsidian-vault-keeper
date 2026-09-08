@@ -1,6 +1,7 @@
 import json
 import subprocess
 import tempfile
+import tarfile
 import unittest
 from pathlib import Path
 
@@ -100,6 +101,36 @@ generated_files:
             for target in ['B2C/Product/00-Index.md', 'K-12/Daily/00-Index.md', 'deep/Unique.md', 'deep/aliased.md']:
                 self.assertNotIn(target, orphans)
             self.assertIn('ignored generated sources: generated.md', orphans['generated-only.md'])
+
+    def test_no_git_report_snapshot_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            vault = base / 'vault'
+            vault.mkdir()
+            backup = base / 'snapshots'
+            (vault / 'VAULT.md').write_text(f"""## Agent Behavior
+```yaml
+git_aware: false
+reports_folder: reports/
+```
+## Archive Policy
+```yaml
+external_archive: {backup}
+```
+""")
+            (vault / 'note.md').write_text('Original content\n')
+            before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in vault.iterdir()}
+            for script in ['vault-health-scan.sh', 'open-items-scan.sh']:
+                subprocess.run([str(ROOT / 'scripts' / script), '--json', str(vault)], check=True, capture_output=True)
+            self.assertEqual(before, {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in vault.iterdir()})
+            self.assertFalse(backup.exists())
+            for script, report in [('vault-health-scan.sh', 'health'), ('open-items-scan.sh', 'open-items')]:
+                run = subprocess.run([str(ROOT / 'scripts' / script), '--report', str(vault)], check=True, capture_output=True, text=True)
+                snapshot = Path(run.stderr.split('Recovery snapshot: ')[1].splitlines()[0])
+                with tarfile.open(snapshot) as archive:
+                    self.assertNotIn('reports/' + report + '-latest.json', archive.getnames())
+                    self.assertEqual(archive.extractfile('note.md').read(), b'Original content\n')
+                self.assertTrue((vault / 'reports' / (report + '-latest.json')).exists())
 
 if __name__ == '__main__':
     unittest.main()

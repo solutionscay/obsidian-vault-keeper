@@ -171,6 +171,21 @@ Curator loop stays open as long as the vault has a fillable gap. A session that 
 with no knowledge improvement must show why expansion specifically was impossible,
 not why one hygiene task was.
 
+## Recovery and Report Order
+
+For a no-git vault, use this order:
+
+1. Read the contract and the last session summary.
+2. Run startup health and open-items scans without `--report`. These scans are read-only.
+3. Run `python3 scripts/prepare_recovery.py <vault>` before the first vault write.
+4. Apply the session changes.
+5. Persist the session-close scans with `--report` in the configured reports folder.
+
+Both report commands also create an external snapshot before they write when
+`git_aware: false`. This protects direct report calls. Each call records its snapshot
+path on stderr. Snapshot failure stops report persistence. Snapshots omit excluded
+paths and do not follow symbolic links. Use the printed archive as the recovery record.
+
 ## Session Continuity
 
 This skill often runs on a schedule. Each run must extend the last one, not repeat it.
@@ -274,12 +289,12 @@ Produce a diagnostic report covering:
 - **Misplaced notes**: files in folders that don't match their type/status
 - **Misplaced root notes**: root Markdown files not in VAULT.md `root_allowed_files`
 
-Run `scripts/vault-health-scan.sh --report <vault>` first. The script detects the
+Run `scripts/vault-health-scan.sh <vault>` first. Use `--report` only after the recovery snapshot. The script detects the
 mechanically decidable categories deterministically — broken wikilinks (honoring
 `link_allowlist`), orphans (excluding links that originate in `generated_files`,
 self-links, and `accepted_orphan_zones`), required-frontmatter violations, duplicate
 basenames, stale active notes, misplaced root notes, and secret-shaped strings —
-plus the baseline metrics, and writes the report envelope (`health-latest.md` /
+plus the baseline metrics, and, with `--report`, writes the report envelope (`health-latest.md` /
 `health-latest.json`) into the VAULT.md `reports_folder`. Two runs on an unchanged
 vault produce identical findings, so never re-derive with judgment what the script
 already found: read its findings and fix them. The judgment categories remain yours
