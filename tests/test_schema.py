@@ -132,5 +132,35 @@ external_archive: {backup}
                     self.assertEqual(archive.extractfile('note.md').read(), b'Original content\n')
                 self.assertTrue((vault / 'reports' / (report + '-latest.json')).exists())
 
+    def test_move_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vault = Path(directory)
+            (vault / 'inbox').mkdir()
+            (vault / 'VAULT.md').write_text("""## Agent Behavior
+```yaml
+inbox_folder: inbox/
+```
+""")
+            (vault / 'move.md').write_text('Body')
+            (vault / 'collision.md').write_text('Body')
+            (vault / 'inbox/collision.md').write_text('Existing')
+            (vault / 'README.md').write_text('[[move.md#Heading|Label]] [Move](move.md)')
+            command = [str(ROOT / 'scripts/root-note-organize.sh'), '--json']
+            plan = json.loads(subprocess.check_output(command + [str(vault)]))
+            self.assertTrue((vault / 'move.md').exists())
+            planned = next(o for o in plan['operations'] if o['status'] == 'planned')
+            self.assertEqual(planned['inbound_link_files'], ['README.md'])
+            result = json.loads(subprocess.check_output(command + ['--apply', str(vault)]))
+            self.assertEqual({o['status'] for o in result['operations']}, {'moved', 'collision'})
+            moved = next(o for o in result['operations'] if o['status'] == 'moved')
+            self.assertEqual((moved['source'], moved['destination'], moved['rule']), ('move.md', 'inbox/move.md', 'inbox fallback'))
+            self.assertEqual(moved['inbound_link_files'], ['README.md'])
+            manifest = vault / 'manifest.json'
+            manifest.write_text(json.dumps(result))
+            output = subprocess.check_output(['python3', str(ROOT / 'scripts/move_manifest.py'), 'table', str(manifest)], text=True)
+            self.assertIn('move.md → inbox/move.md', output)
+            self.assertIn('links updated: README.md', output)
+            self.assertEqual(output.count('| moved |'), 1)
+
 if __name__ == '__main__':
     unittest.main()

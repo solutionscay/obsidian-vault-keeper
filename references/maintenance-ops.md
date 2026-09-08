@@ -477,3 +477,14 @@ Also check: does the note's tags suggest it belongs to a different area?
 4. If vault uses shortest-path wikilinks, no link updates needed (Obsidian
    resolves these automatically)
 5. Verify no broken links resulted from the move
+
+### Move summary manifest
+
+Use `scripts/root-note-organize.sh --json <vault>` for a read-only move plan.
+Add `--apply` to make the moves. Save stdout outside the vault until the recovery
+snapshot exists. The versioned JSON envelope includes moved, planned, collision,
+and deferred operations. Each operation records the source, destination, rule,
+reason, and affected inbound-link files.
+
+Run `python3 scripts/move_manifest.py table <manifest.json>` to produce the session
+summary table. Each move occupies one row, with its link updates in the reason cell.

@@ -5,15 +5,31 @@
 set -euo pipefail
 
 APPLY=false
-if [ "${1:-}" = "--apply" ]; then
-    APPLY=true
+JSON_MODE=false
+while [[ "${1:-}" == --* ]]; do
+    case "$1" in
+        --apply) APPLY=true ;;
+        --json) JSON_MODE=true ;;
+        *) echo "Unknown option: $1" >&2; exit 2 ;;
+    esac
     shift
-fi
-
+done
 if [ "$#" -ne 1 ] || [ ! -d "$1" ]; then
-    echo "Usage: $0 [--apply] /path/to/vault" >&2
+    echo "Usage: $0 [--apply] [--json] /path/to/vault" >&2
     exit 2
 fi
+MANIFEST_HELPER="$(cd "$(dirname "$0")" && pwd)/move_manifest.py"
+MANIFEST_EVENTS=$(mktemp)
+trap 'rm -f "$MANIFEST_EVENTS"' EXIT
+if [ "$JSON_MODE" = true ]; then
+    exec 3>&1
+    exec 1>/dev/null
+fi
+UPDATED_LINK_FILES=()
+record_operation() {
+    python3 "$MANIFEST_HELPER" append "$MANIFEST_EVENTS" "$1" "$name" "$2" \
+        "${placement_reason:-}" "$3" "${UPDATED_LINK_FILES[@]}"
+}
 
 VAULT_DIR=$(cd "$1" && pwd -P)
 VAULT_CONFIG="$VAULT_DIR/VAULT.md"
@@ -157,6 +173,8 @@ update_inbound_links() {
         ' "$source"; then
             continue
         fi
+        UPDATED_LINK_FILES+=("$source_relative")
+        [ "$APPLY" = true ] || continue
         OLD_RELATIVE="$old_relative" NEW_RELATIVE="$new_relative" \
         OLD_LINK="$old_link" NEW_LINK="$new_link" perl -0pi -e '
             my $old_relative=$ENV{"OLD_RELATIVE"};
@@ -282,6 +300,9 @@ MOVED=0
 DEFERRED=0
 while IFS= read -r -d '' source; do
     name=$(basename "$source")
+    is_protected_path "$name" && continue
+    UPDATED_LINK_FILES=()
+    placement_reason=""
     [ -n "${ALLOWED[$name]:-}" ] && continue
 
     type=$(frontmatter_value "$source" type)
@@ -292,6 +313,7 @@ while IFS= read -r -d '' source; do
     if [ -n "$type_destination" ] && [ -n "$status_destination" ] &&
        [ "$type_destination" != "$status_destination" ]; then
         echo "DEFER: $name | ambiguous placement"
+        record_operation deferred "" "ambiguous placement"
         DEFERRED=$((DEFERRED + 1))
         continue
     fi
@@ -308,6 +330,7 @@ while IFS= read -r -d '' source; do
     fi
     if [ -z "$destination_folder" ]; then
         echo "DEFER: $name | inbox_folder is missing"
+        record_operation deferred "" "inbox_folder is missing"
         DEFERRED=$((DEFERRED + 1))
         continue
     fi
@@ -316,11 +339,13 @@ while IFS= read -r -d '' source; do
     if [ "$destination_folder" = "." ] || [[ "$destination_folder" = /* ]] ||
        [[ "/$destination_folder/" = *"/../"* ]]; then
         echo "DEFER: $name | destination path is unsafe: $destination_folder"
+        record_operation deferred "" "destination path is unsafe: $destination_folder"
         DEFERRED=$((DEFERRED + 1))
         continue
     fi
     if [ ! -d "$VAULT_DIR/$destination_folder" ]; then
         echo "DEFER: $name | destination folder is missing: $destination_folder/"
+        record_operation deferred "" "destination folder is missing: $destination_folder/"
         DEFERRED=$((DEFERRED + 1))
         continue
     fi
@@ -328,25 +353,34 @@ while IFS= read -r -d '' source; do
     destination="$VAULT_DIR/$destination_folder/$name"
     if is_protected_path "$destination_folder/$name"; then
         echo "DEFER: $name | destination is protected: $destination_folder/"
+        record_operation deferred "" "destination is protected: $destination_folder/"
         DEFERRED=$((DEFERRED + 1))
         continue
     fi
     if [ -e "$destination" ]; then
         echo "DEFER: $name | destination exists: $destination_folder/$name"
+        record_operation collision "$destination_folder/$name" "destination exists"
         DEFERRED=$((DEFERRED + 1))
         continue
     fi
 
     if [ "$APPLY" = false ]; then
+        update_inbound_links "$name" "$destination_folder/$name"
+        record_operation planned "$destination_folder/$name" ""
         echo "PLAN: $name -> $destination_folder/$name | reason: $placement_reason"
         continue
     fi
 
     mv -- "$source" "$destination"
     update_inbound_links "$name" "$destination_folder/$name"
+    record_operation moved "$destination_folder/$name" ""
     echo "MOVE: $name -> $destination_folder/$name | reason: $placement_reason"
     MOVED=$((MOVED + 1))
 done < <(find "$VAULT_DIR" -maxdepth 1 -type f -name '*.md' -print0 | sort -z)
 
 echo "Moved notes: $MOVED"
 echo "Deferred notes: $DEFERRED"
+
+if [ "$JSON_MODE" = true ]; then
+    python3 "$MANIFEST_HELPER" envelope "$MANIFEST_EVENTS" >&3
+fi
