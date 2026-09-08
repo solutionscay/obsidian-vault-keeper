@@ -13,3 +13,7 @@ Thumbs.db
 .trash/
 .stfolder/
 .stversions/
+
+# Python helper bytecode
+__pycache__/
+*.pyc

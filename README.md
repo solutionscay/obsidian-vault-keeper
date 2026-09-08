@@ -41,6 +41,17 @@ conventions, writes a conservative draft, and marks it for review.
 4. Read the session summary at the end. It lists the files that changed and gives a
    command to review the changes.
 
+## Steward audit command
+
+Run `scripts/steward-audit.sh --json <vault>` for a read-only audit. Add `--report`
+to persist the JSON and Markdown reports. Add `--strict` to return exit code 2 when
+error findings exist. The envelope covers health, frontmatter, tags, root placement,
+formatting, and structure. Each finding has a stable ID and a classification.
+See [the audit reference](references/steward-audit.md) for its fields and limits.
+
+The scripts need Python 3 and PyYAML in addition to Bash and the existing shell tools.
+Install PyYAML with `python3 -m pip install PyYAML` if it is absent.
+
 ## Safety
 
 The skill obeys these rules.
@@ -91,6 +102,7 @@ obsidian-vault-keeper/
     maintenance-ops.md         Steward procedures (how)
     expansion-ops.md           Curator procedures (how)
   scripts/
+    steward-audit.sh          combined Steward audit and JSON envelope
     curator-domain-select.sh   Curator domain rotation (bash)
     root-note-organize.sh      root note plan and moves (bash)
     vault-health-scan.sh       deterministic health diagnostics + report envelope (bash)

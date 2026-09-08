@@ -604,4 +604,5 @@ grep -q 'quick_win_marker:' "$REPO_DIR/assets/vault-md-template.md" ||
     fail 'The starter template has no quick_win_marker key.'
 
 python3 "$REPO_DIR/tests/test_schema.py"
+python3 "$REPO_DIR/tests/test_audit.py"
 echo 'All tests passed.'

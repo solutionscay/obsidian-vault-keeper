@@ -181,7 +181,8 @@ For a no-git vault, use this order:
 4. Apply the session changes.
 5. Persist the session-close scans with `--report` in the configured reports folder.
 
-Both report commands also create an external snapshot before they write when
+The health, open-items, and Steward audit report commands create an external
+snapshot before they write when
 `git_aware: false`. This protects direct report calls. Each call records its snapshot
 path on stderr. Snapshot failure stops report persistence. Snapshots omit excluded
 paths and do not follow symbolic links. Use the printed archive as the recovery record.
@@ -289,7 +290,15 @@ Produce a diagnostic report covering:
 - **Misplaced notes**: files in folders that don't match their type/status
 - **Misplaced root notes**: root Markdown files not in VAULT.md `root_allowed_files`
 
-Run `scripts/vault-health-scan.sh <vault>` first. Use `--report` only after the recovery snapshot. The script detects the
+Run `scripts/steward-audit.sh --json <vault>` first. It combines health,
+frontmatter, tag, root-placement, formatting, and structure checks in one versioned
+envelope. Each finding has a stable ID and a `deterministic` or `judgment-required`
+classification. The inputs include the schema, taxonomy, move plan, and note inventory.
+Use `--report` after the recovery snapshot to persist `steward-latest.json` and
+`steward-latest.md`. Read `references/steward-audit.md` for the command and envelope.
+
+The focused `scripts/vault-health-scan.sh <vault>` remains available for health-only
+checks. The script detects the
 mechanically decidable categories deterministically — broken wikilinks (honoring
 `link_allowlist`), orphans (excluding links that originate in `generated_files`,
 self-links, and `accepted_orphan_zones`), required-frontmatter violations, duplicate
