@@ -357,3 +357,18 @@ collection_overrides:
 ```
 
 Overrides replace named declarations. More specific paths take precedence.
+
+### Domain tag validation
+
+When `Tag Taxonomy.domain_tags` exists, each eligible note must contain exactly
+one distinct tag from that list. Topic tags do not count. Flow and block YAML
+lists are valid. The report separates missing, multiple, and invalid tag lists.
+Root contract files, generated files, excluded paths, and read-only paths retain
+the health scan exemptions. Declare other structural exceptions explicitly:
+
+```yaml
+domain_tag_exceptions:
+  - Collection/00-Index.md
+```
+
+Put this key in the `Tag Taxonomy` section. Exceptions accept paths or glob patterns.

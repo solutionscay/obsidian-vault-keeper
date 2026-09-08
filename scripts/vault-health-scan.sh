@@ -539,6 +539,7 @@ done
 
 # --- Required frontmatter validation (error) ----------------------------------
 FM_VIOLATION_COUNT=0
+DOMAIN_TAG_COUNT=0
 SCHEMA_FILES=()
 for rel in "${REL_PATHS[@]}"; do
     is_generated "$rel" && continue
@@ -549,7 +550,11 @@ SCHEMA_OUTPUT=$(python3 "$(dirname "$0")/vault_schema.py" "$VAULT_DIR" "${SCHEMA
 while IFS=$'\t' read -r category rel detail; do
     [ -n "$category" ] || continue
     add_finding error "$category" "$rel" "$detail"
-    FM_VIOLATION_COUNT=$((FM_VIOLATION_COUNT + 1))
+    if [ "$category" = frontmatter ]; then
+        FM_VIOLATION_COUNT=$((FM_VIOLATION_COUNT + 1))
+    else
+        DOMAIN_TAG_COUNT=$((DOMAIN_TAG_COUNT + 1))
+    fi
 done <<< "$SCHEMA_OUTPUT"
 
 # --- Duplicate basenames (warning) --------------------------------------------
@@ -717,6 +722,7 @@ render_json() {
     printf '    "unique_tags": %s,\n' "$ALL_TAGS"
     printf '    "broken_links": %s,\n' "$BROKEN_LINK_COUNT"
     printf '    "orphans": %s,\n' "$ORPHAN_COUNT"
+    printf '    "domain_tag_violations": %s,\n' "$DOMAIN_TAG_COUNT"
     printf '    "frontmatter_violations": %s,\n' "$FM_VIOLATION_COUNT"
     printf '    "duplicate_basenames": %s,\n' "$DUPLICATE_COUNT"
     printf '    "stale_notes": %s,\n' "$STALE_COUNT"
@@ -747,6 +753,7 @@ render_report_md() {
     printf '## Counts\n\n'
     printf -- '- Total notes: %s\n' "$TOTAL_NOTES"
     printf -- '- Broken links: %s (error)\n' "$BROKEN_LINK_COUNT"
+    printf -- '- Domain tag violations: %s (error)\n' "$DOMAIN_TAG_COUNT"
     printf -- '- Frontmatter violations: %s (error)\n' "$FM_VIOLATION_COUNT"
     printf -- '- Secret-shaped strings: %s (error)\n' "$SECRET_COUNT"
     printf -- '- Orphans: %s (warning)\n' "$ORPHAN_COUNT"

@@ -1,5 +1,6 @@
 """Parse the fenced vault contract and validate declared frontmatter types."""
 import datetime
+import json
 import re
 import sys
 from pathlib import Path
@@ -126,9 +127,28 @@ def validate(vault, rel, config):
     return findings
 
 
+def validate_tags(vault, rel, config):
+    taxonomy = config.get('Tag Taxonomy', {})
+    domains = taxonomy.get('domain_tags', [])
+    if not domains or any(in_path(rel, p) for p in taxonomy.get('domain_tag_exceptions', [])):
+        return []
+    try:
+        data = frontmatter(vault / rel)
+    except (ValueError, yaml.YAMLError):
+        return [('domain-tag-missing', 'current domain tags: [] (frontmatter unavailable)')]
+    tags = data.get('tags', [])
+    if not isinstance(tags, list):
+        return [('domain-tag-invalid', 'tags must be a YAML list; current domain tags: []')]
+    current = sorted({tag for tag in tags if isinstance(tag, str) and tag in domains})
+    if len(current) == 1:
+        return []
+    category = 'domain-tag-missing' if not current else 'domain-tag-multiple'
+    return [(category, 'current domain tags: ' + json.dumps(current, ensure_ascii=False))]
+
+
 if __name__ == '__main__':
     vault = Path(sys.argv[1])
     config = contract(vault / 'VAULT.md') if (vault / 'VAULT.md').exists() else {}
     for rel in sys.argv[2:]:
-        for category, detail in validate(vault, rel, config):
+        for category, detail in validate(vault, rel, config) + validate_tags(vault, rel, config):
             print('\t'.join((category, rel, detail)))
