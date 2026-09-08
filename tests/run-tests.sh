@@ -150,7 +150,18 @@ assert_contains "$PLAN_OUTPUT" 'PLAN: project.md -> 10-projects/project.md | rea
 assert_contains "$PLAN_OUTPUT" 'PLAN: loose.md -> 00-inbox/loose.md | reason: inbox fallback'
 [ -f "$ORGANIZE_VAULT/project.md" ] || fail 'The plan moved a root note.'
 
+# Unrelated and protected notes must retain their contents and modification times.
+printf 'No inbound links here.\n' > "$ORGANIZE_VAULT/notes/unrelated.md"
+touch -t 200101010101 "$ORGANIZE_VAULT/notes/unrelated.md" \
+    "$ORGANIZE_VAULT/read-only/links.md" "$ORGANIZE_VAULT/custom-reports/archive/incident.md"
+UNCHANGED_FILES=("$ORGANIZE_VAULT/notes/unrelated.md" \
+    "$ORGANIZE_VAULT/read-only/links.md" "$ORGANIZE_VAULT/custom-reports/archive/incident.md")
+BEFORE_HASHES=$(sha256sum "${UNCHANGED_FILES[@]}")
+BEFORE_MTIMES=$(stat -c '%n %y' "${UNCHANGED_FILES[@]}")
 APPLY_OUTPUT=$("$ORGANIZE" --apply "$ORGANIZE_VAULT")
+[ "$BEFORE_HASHES" = "$(sha256sum "${UNCHANGED_FILES[@]}")" ] || fail 'Unrelated or protected content changed.'
+[ "$BEFORE_MTIMES" = "$(stat -c '%n %y' "${UNCHANGED_FILES[@]}")" ] || fail 'Unrelated or protected modification times changed.'
+
 assert_contains "$APPLY_OUTPUT" 'MOVE: project.md -> 10-projects/project.md | reason: placement rule: type/project'
 assert_contains "$APPLY_OUTPUT" 'MOVE: loose.md -> 00-inbox/loose.md | reason: inbox fallback'
 assert_contains "$APPLY_OUTPUT" 'DEFER: collision.md | destination exists: 00-inbox/collision.md'

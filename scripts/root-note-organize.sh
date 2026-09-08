@@ -149,6 +149,14 @@ update_inbound_links() {
         is_protected_path "$source_relative" && continue
         old_link=$(realpath -m --relative-to="$(dirname "$source")" "$VAULT_DIR/$old_relative")
         new_link=$(realpath -m --relative-to="$(dirname "$source")" "$VAULT_DIR/$new_relative")
+        # Read first: Perl in-place mode replaces files even without a match.
+        if ! OLD_RELATIVE="$old_relative" OLD_LINK="$old_link" perl -0ne '
+            $found=1 if /\[\[\Q$ENV{"OLD_RELATIVE"}\E(?=[|#\]])/;
+            $found=1 if /\]\(\Q$ENV{"OLD_LINK"}\E(?=[ #)])/;
+            END { exit($found ? 0 : 1) }
+        ' "$source"; then
+            continue
+        fi
         OLD_RELATIVE="$old_relative" NEW_RELATIVE="$new_relative" \
         OLD_LINK="$old_link" NEW_LINK="$new_link" perl -0pi -e '
             my $old_relative=$ENV{"OLD_RELATIVE"};
