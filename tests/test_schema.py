@@ -70,5 +70,36 @@ generated_files:
                              {('zero.md', 'domain-tag-missing'), ('many.md', 'domain-tag-multiple')})
             self.assertIn('["alpha", "beta"]', next(f['detail'] for f in findings if f['file'] == 'many.md'))
 
+    def test_nested_hub_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vault = Path(directory)
+            (vault / 'VAULT.md').write_text("""## Exclusions
+```yaml
+generated_files:
+  - generated.md
+```
+""")
+            notes = {
+                'B2C/00-Index.md': '[[Product/00-Index#Overview|Product]]',
+                'B2C/Product/00-Index.md': 'Product body',
+                'K-12/00-Index.md': '[[K-12/Daily/00-Index]]',
+                'K-12/Daily/00-Index.md': 'Daily body',
+                'notes/source.md': '[[Unique]] [[Alias#Heading|label]]',
+                'deep/Unique.md': 'Unique body',
+                'deep/aliased.md': '---\naliases: [Alias]\n---\nAlias body',
+                'generated.md': '[[generated-only]]',
+                'generated-only.md': 'Generated-only body',
+            }
+            for name, body in notes.items():
+                path = vault / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body + '\n')
+            result = json.loads(subprocess.check_output([str(ROOT / 'scripts/vault-health-scan.sh'), '--json', str(vault)]))
+            self.assertFalse([f for f in result['findings'] if f['category'] == 'broken-link'])
+            orphans = {f['file']: f['detail'] for f in result['findings'] if f['category'] == 'orphan'}
+            for target in ['B2C/Product/00-Index.md', 'K-12/Daily/00-Index.md', 'deep/Unique.md', 'deep/aliased.md']:
+                self.assertNotIn(target, orphans)
+            self.assertIn('ignored generated sources: generated.md', orphans['generated-only.md'])
+
 if __name__ == '__main__':
     unittest.main()

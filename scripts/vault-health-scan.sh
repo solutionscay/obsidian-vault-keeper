@@ -444,6 +444,7 @@ done
 # to itself: a generated index that links to everything would otherwise mask
 # every real orphan in the vault.
 declare -A INBOUND=()
+declare -A GENERATED_INBOUND=()
 BROKEN_LINK_COUNT=0
 
 for idx in "${!NOTE_FILES[@]}"; do
@@ -470,21 +471,36 @@ for idx in "${!NOTE_FILES[@]}"; do
         if [ -n "${NOTE_BY_REL[$path_key]:-}" ]; then
             resolved=${NOTE_BY_REL[$path_key]}
         else
-            base_key=${path_key##*/}
-            base_key=${base_key%.md}
-            candidate=${NOTE_BY_BASE[$base_key]:-}
-            if [ -n "$candidate" ] && [ "$candidate" != "!ambiguous" ]; then
-                resolved="$candidate"
-            elif [ "$candidate" = "!ambiguous" ]; then
-                # Ambiguous shortest-path link: it resolves in Obsidian, so it is
-                # not broken; skip inbound credit rather than guess a target.
-                continue
+            # Source-relative paths and unique suffixes resolve nested hubs.
+            local_key=$(realpath -m --relative-to="$VAULT_DIR" \
+                "$VAULT_DIR/$(dirname "$rel")/$path_key")
+            local_key=$(lower "$local_key")
+            if [ -n "${NOTE_BY_REL[$local_key]:-}" ]; then
+                resolved=${NOTE_BY_REL[$local_key]}
+            elif [[ "$path_key" == */* ]]; then
+                matches=()
+                for indexed_path in "${!NOTE_BY_REL[@]}"; do
+                    [[ "$indexed_path" == */"$path_key" ]] && matches+=("${NOTE_BY_REL[$indexed_path]}")
+                done
+                if [ "${#matches[@]}" -eq 1 ]; then
+                    resolved=${matches[0]}
+                elif [ "${#matches[@]}" -gt 1 ]; then
+                    continue
+                fi
             else
-                candidate=${ALIAS_BY_NAME[$base_key]:-}
+                base_key=${path_key%.md}
+                candidate=${NOTE_BY_BASE[$base_key]:-}
                 if [ -n "$candidate" ] && [ "$candidate" != "!ambiguous" ]; then
                     resolved="$candidate"
                 elif [ "$candidate" = "!ambiguous" ]; then
                     continue
+                else
+                    candidate=${ALIAS_BY_NAME[$base_key]:-}
+                    if [ -n "$candidate" ] && [ "$candidate" != "!ambiguous" ]; then
+                        resolved="$candidate"
+                    elif [ "$candidate" = "!ambiguous" ]; then
+                        continue
+                    fi
                 fi
             fi
         fi
@@ -502,6 +518,9 @@ for idx in "${!NOTE_FILES[@]}"; do
             continue
         fi
 
+        if [ "$source_is_generated" -eq 1 ] && [ "$resolved" != "$rel" ]; then
+            GENERATED_INBOUND["$resolved"]+="$rel; "
+        fi
         if [ "$source_is_generated" -eq 0 ] && [ "$resolved" != "$rel" ]; then
             INBOUND["$resolved"]=$(( ${INBOUND["$resolved"]:-0} + 1 ))
         fi
@@ -533,7 +552,11 @@ for rel in "${REL_PATHS[@]}"; do
     if printf '%s\n' "$fm" | grep -qiE "^type[[:space:]]*:[[:space:]]*['\"]?(moc|hub)['\"]?[[:space:]]*$"; then
         continue
     fi
-    add_finding warning orphan "$rel" "no inbound links from any non-generated note"
+    detail="no inbound links from any non-generated note"
+    if [ -n "${GENERATED_INBOUND[$rel]:-}" ]; then
+        detail+="; ignored generated sources: ${GENERATED_INBOUND[$rel]}"
+    fi
+    add_finding warning orphan "$rel" "$detail"
     ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
 done
 
